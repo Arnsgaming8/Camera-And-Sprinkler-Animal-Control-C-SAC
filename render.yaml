@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: blink-bhyve-bridge
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: BLINK_EMAIL
+        sync: false
+      - key: BLINK_PASSWORD
+        sync: false
+      - key: CAMERA_NAME
+        value: "Front Door"
+      - key: BHYVE_EMAIL
+        sync: false
+      - key: BHYVE_PASSWORD
+        sync: false
+      - key: DEVICE_ID
+        sync: false
+      - key: ZONE_NUMBER
+        value: "1"
+      - key: DURATION_SECONDS
+        value: "20"
+      - key: POLL_INTERVAL_SECONDS
+        value: "30"
