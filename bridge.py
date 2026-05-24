@@ -294,18 +294,36 @@ class BlinkWatcher:
 
         if not motion_detected:
             try:
-                from blinkpy import api as blink_api
                 for name, sync_mod in self.blink.sync.items():
-                    events_resp = await blink_api.request_sync_events(self.blink, sync_mod.network_id)
-                    if events_resp and isinstance(events_resp, list):
-                        for ev in events_resp:
-                            cam = ev.get("camera_name", "") or ev.get("device_name", "")
-                            if cam == CONFIG["camera_name"] and ev.get("type") == "motion":
-                                motion_detected = True
-                                print(f"  Motion detected via sync events: {ev.get('type')}")
+                    url = f"{self.blink.urls.base_url}/network/{sync_mod.network_id}"
+                    resp = await self.blink.auth.session.get(url, headers={"User-Agent": "Blink/50.1"})
+                    if resp.status == 200:
+                        data = await resp.json()
+                        for cam_data in data.get("cameras", []):
+                            if cam_data.get("name") == CONFIG["camera_name"]:
+                                motion_detected = bool(cam_data.get("motion")) or cam_data.get("status") == "motion"
+                                if motion_detected:
+                                    print(f"  Motion via network status")
                                 break
             except Exception as e:
-                pass
+                print(f"  Network status check: {type(e).__name__}: {e}")
+
+        if not motion_detected:
+            try:
+                for name, sync_mod in self.blink.sync.items():
+                    url = f"{self.blink.urls.base_url}/events/network/{sync_mod.network_id}"
+                    resp = await self.blink.auth.session.get(url, headers={"User-Agent": "Blink/50.1"})
+                    if resp.status == 200:
+                        data = await resp.json()
+                        events = data if isinstance(data, list) else data.get("events", data.get("event_list", []))
+                        for ev in events:
+                            cam = ev.get("camera_name", "") or ev.get("device_name", "")
+                            if cam == CONFIG["camera_name"] and ev.get("type") in ("motion", "on"):
+                                motion_detected = True
+                                print(f"  Motion via sync events: {ev}")
+                                break
+            except Exception as e:
+                print(f"  Sync events check: {type(e).__name__}: {e}")
 
         if motion_detected:
             if record_now:
