@@ -275,8 +275,12 @@ async def main():
                 pin = state.twofa_pin
                 print("  Submitting 2FA code...")
                 try:
-                    await blink.auth.send_auth_key(pin)
-                    await blink.setup_post_verification()
+                    success = await blink.send_2fa_code(pin)
+                    if not success:
+                        raise RuntimeError("Blink 2FA returned False")
+                    state.twofa_event.clear()
+                    state.blink_instance = None
+                    state.twofa_pin = None
                     errors.log_error("main.blink_2fa", "2FA completed successfully")
                     print("  2FA completed successfully")
                 except Exception as e:
