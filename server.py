@@ -346,7 +346,7 @@ async def _manual_water():
             bhyve.device_id = CONFIG["device_id"]
             bhyve.zone = CONFIG["zone_number"]
             await bhyve.login()
-            minutes = max(DURATION_SECONDS / 60, 1 / 60)
+            minutes = max(1, round(DURATION_SECONDS / 60))
             await bhyve.start_zone(minutes)
             zone = CONFIG["zone_number"]
             errors.log_error("watering", f"Manual zone {zone} started ({DURATION_SECONDS}s)")

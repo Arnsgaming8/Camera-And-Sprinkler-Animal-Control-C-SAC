@@ -118,11 +118,7 @@ class BHyveClient:
         headers = {"orbit-session-token": self.token}
         self.ws = await self.session.ws_connect(BHYVE_WS, headers=headers)
         self._token_for_ws = self.token
-        app_conn = {
-            "event": "app_connection",
-            "orbit_session_token": self.token,
-        }
-        await self.ws.send_json(app_conn)
+        await self.ws.send_json({"event": "app_connection"})
 
     async def _ping_loop(self):
         try:
@@ -139,17 +135,27 @@ class BHyveClient:
         try:
             await self.connect_ws()
             ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            minutes = max(1, round(minutes))
             payload = {
                 "event": "change_mode",
                 "mode": "manual",
                 "device_id": self.device_id,
                 "timestamp": ts,
                 "stations": [{"station": self.zone, "run_time": minutes}],
-                "orbit_session_token": self.token,
             }
             await self.ws.send_json(payload)
+            try:
+                msg = await asyncio.wait_for(self.ws.receive(), timeout=5)
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    resp = msg.json()
+                    if resp.get("event") == "change_mode" and resp.get("status") != "ok":
+                        raise RuntimeError(f"Server rejected: {resp}")
+            except asyncio.TimeoutError:
+                pass
             if self._ping_task is None or self._ping_task.done():
                 self._ping_task = asyncio.ensure_future(self._ping_loop())
+        except asyncio.TimeoutError:
+            pass
         except Exception as e:
             raise RuntimeError(f"Start zone failed: {e}") from e
 
@@ -163,7 +169,6 @@ class BHyveClient:
                 "device_id": self.device_id,
                 "timestamp": ts,
                 "stations": [],
-                "orbit_session_token": self.token,
             }
             await self.ws.send_json(payload)
         except Exception as e:
