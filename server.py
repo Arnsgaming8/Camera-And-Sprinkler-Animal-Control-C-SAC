@@ -67,6 +67,20 @@ PAGE = r"""<!DOCTYPE html>
                       padding: 6px 12px; color: #c9d1d9; font-size: 1rem; width: 180px; }
   .twofa-form input:focus { outline: none; border-color: #58a6ff; }
   .twofa-status { margin-top: 8px; font-size: 0.85rem; color: #8b949e; }
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    h1 { font-size: 1.2rem; }
+    .toolbar button { flex: 1; text-align: center; }
+    .twofa-form { flex-direction: column; align-items: stretch; }
+    .twofa-form input { width: 100%; }
+    .twofa-banner { padding: 12px; }
+    .entry { padding: 10px 12px; }
+    .entry .head { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .entry .actions { flex-wrap: wrap; }
+    .entry .copy-btn { padding: 4px 12px; }
+    .entry .trace { font-size: 0.72rem; max-height: 200px; }
+    .entry .msg { font-size: 0.8rem; }
+  }
 </style>
 </head>
 <body>
