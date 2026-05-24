@@ -102,6 +102,7 @@ PAGE = r"""<!DOCTYPE html>
 
 <div class="toolbar">
   <span class="badge" id="count">0 errors</span>
+  <span class="badge" id="pollStatus" style="font-size:0.8rem">poll: --</span>
   <button onclick="refresh()">Refresh</button>
   <button onclick="waterZone()" id="waterBtn">Water Zone <span id="zoneNum">?</span></button>
   <span class="badge" id="zoneBadge" style="display:none"></span>
@@ -221,6 +222,19 @@ async function check2FA() {
     prevRequired = data.required;
   } catch(e) { /* ignore */ }
 }
+async function pollStatus() {
+  try {
+    const r = await fetch("/api/status");
+    const data = await r.json();
+    const el = document.getElementById("pollStatus");
+    if (data.last_poll) {
+      const t = new Date(data.last_poll + "Z").toLocaleTimeString();
+      el.textContent = "poll: " + t;
+    } else {
+      el.textContent = "poll: waiting...";
+    }
+  } catch(e) { /* ignore */ }
+}
 async function waterZone() {
   const btn = document.getElementById("waterBtn");
   btn.disabled = true;
@@ -252,8 +266,10 @@ async function loadConfig() {
 }
 setInterval(refresh, 5000);
 setInterval(check2FA, 5000);
+setInterval(pollStatus, 5000);
 refresh();
 check2FA();
+pollStatus();
 loadConfig();
 setInterval(refresh, 5000);
 setInterval(check2FA, 5000);
@@ -279,7 +295,11 @@ async def handle_clear(request):
 
 
 async def handle_status(request):
-    return web.json_response({"status": "running", "error_count": len(errors.get_errors(9999))})
+    return web.json_response({
+        "status": "running",
+        "error_count": len(errors.get_errors(9999)),
+        "last_poll": state.last_poll,
+    })
 
 
 async def handle_2fa_status(request):

@@ -250,6 +250,7 @@ class BlinkWatcher:
             state.reauth_in_progress = False
 
     async def check_motion(self):
+        state.last_poll = datetime.now(timezone.utc).isoformat()
         if self.blink.urls is None:
             if state.reauth_in_progress:
                 print("  Re-auth already in progress, skipping")
