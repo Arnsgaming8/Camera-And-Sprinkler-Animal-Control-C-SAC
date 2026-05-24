@@ -118,7 +118,6 @@ PAGE = r"""<!DOCTYPE html>
   <span class="badge" id="count">0 errors</span>
   <span class="badge" id="pollStatus" style="font-size:0.8rem">poll: --</span>
   <button onclick="refresh()">Refresh</button>
-  <button onclick="waterZone()" id="waterBtn">Water Zone <span id="zoneNum">?</span></button>
   <span class="badge" id="zoneBadge" style="display:none"></span>
   <button class="danger" onclick="clearErrors()">Clear All</button>
 </div>
@@ -261,25 +260,6 @@ async function pollStatus() {
     }
   } catch(e) { /* ignore */ }
 }
-async function waterZone() {
-  const btn = document.getElementById("waterBtn");
-  btn.disabled = true;
-  btn.textContent = "Watering...";
-  try {
-    const r = await fetch("/api/water/start", { method: "POST", headers: {"Content-Type": "application/json"}, body: "{}" });
-    const data = await r.json();
-    if (data.ok) {
-      btn.textContent = "Watering started!";
-      setTimeout(() => { btn.textContent = "Water Zone " + (data.zone || "?"); btn.disabled = false; }, 2000);
-    } else {
-      btn.textContent = "Failed: " + (data.error || "unknown");
-      setTimeout(() => { btn.textContent = "Water Zone " + (data.zone || "?"); btn.disabled = false; }, 3000);
-    }
-  } catch(e) {
-    btn.textContent = "Network error";
-    setTimeout(() => { btn.textContent = "Water Zone " + (data.zone || "?"); btn.disabled = false; }, 3000);
-  }
-}
 async function customWater() {
   const zone = document.getElementById("customZone").value;
   const dur = document.getElementById("customDur").value;
@@ -298,27 +278,12 @@ async function customWater() {
     if (data.ok) setTimeout(() => status.textContent = "", 3000);
   } catch(e) { status.textContent = "Network error"; }
 }
-async function loadConfig() {
-  try {
-    const r = await fetch("/api/config");
-    const cfg = await r.json();
-    document.getElementById("zoneNum").textContent = cfg.zone_number;
-    const badge = document.getElementById("zoneBadge");
-    badge.textContent = "Device: " + cfg.device_id.slice(0,8) + "…";
-    badge.style.display = "";
-  } catch(e) { /* ignore */ }
-}
 setInterval(refresh, 5000);
 setInterval(check2FA, 5000);
 setInterval(pollStatus, 5000);
 refresh();
 check2FA();
 pollStatus();
-loadConfig();
-setInterval(refresh, 5000);
-setInterval(check2FA, 5000);
-refresh();
-check2FA();
 </script>
 </body>
 </html>"""
