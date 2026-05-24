@@ -228,7 +228,7 @@ async function pollStatus() {
     const data = await r.json();
     const el = document.getElementById("pollStatus");
     if (data.last_poll) {
-      const t = new Date(data.last_poll + "Z").toLocaleTimeString();
+      const t = new Date(data.last_poll).toLocaleTimeString();
       el.textContent = "poll: " + t;
     } else {
       el.textContent = "poll: waiting...";
