@@ -128,15 +128,20 @@ async function submit2FA() {
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({pin})
     });
-    const data = await r.json();
-    if (data.ok) {
-      status.textContent = "2FA completed! Bridge is starting...";
-      status.style.color = "#3fb950";
-      document.getElementById("twofaBanner").classList.remove("show");
-    } else {
+    const text = await r.text();
+    if (text.startsWith("{")) {
+      const data = JSON.parse(text);
+      if (data.ok) {
+        status.textContent = "2FA completed! Bridge is starting...";
+        status.style.color = "#3fb950";
+        document.getElementById("twofaBanner").classList.remove("show");
+        return;
+      }
       status.textContent = "Error: " + (data.error || "unknown");
-      status.style.color = "#da3633";
+    } else {
+      status.textContent = "Unexpected response: " + text.slice(0, 200);
     }
+    status.style.color = "#da3633";
   } catch(e) {
     status.textContent = "Network error: " + e.message;
     status.style.color = "#da3633";
@@ -148,14 +153,9 @@ async function resend2FA() {
   status.style.color = "#8b949e";
   try {
     const r = await fetch("/api/blink/2fa/resend", { method: "POST" });
-    const data = await r.json();
-    if (data.ok) {
-      status.textContent = "New code sent! Check your email.";
-      status.style.color = "#3fb950";
-    } else {
-      status.textContent = "Error: " + (data.error || "unknown");
-      status.style.color = "#da3633";
-    }
+    const text = await r.text();
+    status.textContent = "Response: " + text.slice(0, 200);
+    status.style.color = "#58a6ff";
   } catch(e) {
     status.textContent = "Network error: " + e.message;
     status.style.color = "#da3633";
