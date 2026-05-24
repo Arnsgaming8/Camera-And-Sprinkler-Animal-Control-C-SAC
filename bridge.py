@@ -281,17 +281,21 @@ async def main():
                     state.twofa_pending = False
                     print("  Submitting 2FA code...")
                     try:
+                        auth_state_ok = hasattr(blink.auth, "_oauth_csrf_token") and hasattr(blink.auth, "_oauth_code_verifier")
+                        errors.log_error("main.blink_2fa_debug", f"auth has csrf={hasattr(blink.auth, '_oauth_csrf_token')}, code_ver={hasattr(blink.auth, '_oauth_code_verifier')}")
+                        if not auth_state_ok:
+                            print("  OAuth state missing — clicking Resend may fix this")
                         success = await blink.send_2fa_code(pin)
                         if success:
                             state.blink_instance = None
                             errors.log_error("main.blink_2fa", "2FA completed successfully")
                             print("  2FA completed successfully")
                             break
-                        errors.log_error("main.blink_2fa_key", "2FA failed (wrong code or expired)")
+                        errors.log_error("main.blink_2fa_key", "2FA send_2fa_code returned False")
                         print("  2FA failed. Check the code and try again.")
                         state.blink_instance = blink
                     except Exception as e:
-                        errors.log_error("main.blink_2fa_key", str(e), exc_info=True)
+                        errors.log_error("main.blink_2fa_key", f"Exception: {e}", exc_info=True)
                         print(f"  ERROR: 2FA submission failed: {e}")
                         state.blink_instance = blink
             except Exception as e:
