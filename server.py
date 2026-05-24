@@ -103,7 +103,8 @@ PAGE = r"""<!DOCTYPE html>
 <div class="toolbar">
   <span class="badge" id="count">0 errors</span>
   <button onclick="refresh()">Refresh</button>
-  <button onclick="waterZone()" id="waterBtn">Water Zone 6</button>
+  <button onclick="waterZone()" id="waterBtn">Water Zone <span id="zoneNum">?</span></button>
+  <span class="badge" id="zoneBadge" style="display:none"></span>
   <button class="danger" onclick="clearErrors()">Clear All</button>
 </div>
 <div id="entries"></div>
@@ -229,16 +230,31 @@ async function waterZone() {
     const data = await r.json();
     if (data.ok) {
       btn.textContent = "Watering started!";
-      setTimeout(() => { btn.textContent = "Water Zone 6"; btn.disabled = false; }, 2000);
+      setTimeout(() => { btn.textContent = "Water Zone " + (data.zone || "?"); btn.disabled = false; }, 2000);
     } else {
       btn.textContent = "Failed: " + (data.error || "unknown");
-      setTimeout(() => { btn.textContent = "Water Zone 6"; btn.disabled = false; }, 3000);
+      setTimeout(() => { btn.textContent = "Water Zone " + (data.zone || "?"); btn.disabled = false; }, 3000);
     }
   } catch(e) {
     btn.textContent = "Network error";
-    setTimeout(() => { btn.textContent = "Water Zone 6"; btn.disabled = false; }, 3000);
+    setTimeout(() => { btn.textContent = "Water Zone " + (data.zone || "?"); btn.disabled = false; }, 3000);
   }
 }
+async function loadConfig() {
+  try {
+    const r = await fetch("/api/config");
+    const cfg = await r.json();
+    document.getElementById("zoneNum").textContent = cfg.zone_number;
+    const badge = document.getElementById("zoneBadge");
+    badge.textContent = "Device: " + cfg.device_id.slice(0,8) + "…";
+    badge.style.display = "";
+  } catch(e) { /* ignore */ }
+}
+setInterval(refresh, 5000);
+setInterval(check2FA, 5000);
+refresh();
+check2FA();
+loadConfig();
 setInterval(refresh, 5000);
 setInterval(check2FA, 5000);
 refresh();
@@ -357,9 +373,19 @@ async def _manual_water():
         errors.log_error("manual_water", str(e), exc_info=True)
 
 
+async def handle_config(request):
+    from bridge import CONFIG
+    return web.json_response({
+        "zone_number": CONFIG.get("zone_number", "?"),
+        "device_id": CONFIG.get("device_id", "?"),
+        "duration_seconds": CONFIG.get("duration_seconds", "?"),
+    })
+
+
 async def handle_water_start(request):
+    from bridge import CONFIG
     asyncio.ensure_future(_manual_water())
-    return web.json_response({"ok": True, "message": "Watering started"})
+    return web.json_response({"ok": True, "zone": CONFIG.get("zone_number", "?")})
 
 
 def create_app():
@@ -371,6 +397,7 @@ def create_app():
     app.router.add_get("/api/blink/2fa/status", handle_2fa_status)
     app.router.add_post("/api/blink/2fa", handle_2fa_submit)
     app.router.add_post("/api/blink/2fa/resend", handle_2fa_resend)
+    app.router.add_get("/api/config", handle_config)
     app.router.add_post("/api/water/start", handle_water_start)
     return app
 
