@@ -1,10 +1,10 @@
-blink_email: "your-blink-email@example.com"
-blink_password: "your-blink-password"
-camera_name: "Front Door"
+blink_email: "ajusunaina@gmail.com"
+blink_password: "3002Sharm@1"
+camera_name: "Back yard"
 
-bhyve_email: "your-bhyve-email@example.com"
-bhyve_password: "your-bhyve-password"
-device_id: "find-this-by-running-discover.js"
+bhyve_email: "ajusunaina@gmail.com"
+bhyve_password: "Sharmjug@1"
+device_id: "607220244f0c161d5a0d1648"
 zone_number: 1
 duration_seconds: 20
 

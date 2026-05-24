@@ -81,11 +81,10 @@ class BHyveClient:
 
     async def login(self):
         payload = {
-            "email": CONFIG["bhyve_email"],
-            "password": CONFIG["bhyve_password"],
-            "device_id": "blink-bhyve-bridge",
-            "app_version": "1.0",
-            "manufacturer": "python",
+            "session": {
+                "email": CONFIG["bhyve_email"],
+                "password": CONFIG["bhyve_password"],
+            }
         }
         try:
             async with self.session.post(f"{BHYVE_API}/session", json=payload) as r:
@@ -100,15 +99,17 @@ class BHyveClient:
         except aiohttp.ClientError as e:
             raise RuntimeError(f"B-hyve login network error: {e}") from e
 
+    def _auth_headers(self):
+        return {"Orbit-Session-Token": self.token}
+
     async def start_zone(self, minutes):
         zone = CONFIG["zone_number"]
         device = CONFIG["device_id"]
-        headers = {"Authorization": f"Bearer {self.token}"}
         try:
             async with self.session.put(
                 f"{BHYVE_API}/device/{device}/watering/zone/{zone}",
                 json={"minutes": minutes},
-                headers=headers,
+                headers=self._auth_headers(),
             ) as r:
                 data = await r.json()
                 if r.status >= 400:
@@ -122,10 +123,10 @@ class BHyveClient:
     async def stop_zone(self):
         zone = CONFIG["zone_number"]
         device = CONFIG["device_id"]
-        headers = {"Authorization": f"Bearer {self.token}"}
         try:
             async with self.session.delete(
-                f"{BHYVE_API}/device/{device}/watering/zone/{zone}", headers=headers
+                f"{BHYVE_API}/device/{device}/watering/zone/{zone}",
+                headers=self._auth_headers(),
             ) as r:
                 data = await r.json()
                 if r.status >= 400:

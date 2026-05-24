@@ -14,17 +14,19 @@ BHYVE_API = "https://api.orbitbhyve.com/v1"
 async def main():
     async with aiohttp.ClientSession() as session:
         payload = {
-            "email": config["bhyve_email"],
-            "password": config["bhyve_password"],
-            "device_id": "bhyve-discover",
-            "app_version": "1.0",
-            "manufacturer": "python",
+            "session": {
+                "email": config["bhyve_email"],
+                "password": config["bhyve_password"],
+            }
         }
         async with session.post(f"{BHYVE_API}/session", json=payload) as r:
             data = await r.json()
+            if r.status >= 400 or "orbit_session_token" not in data:
+                print(f"Login failed ({r.status}): {data}")
+                return
             token = data["orbit_session_token"]
 
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {"Orbit-Session-Token": token}
         async with session.get(f"{BHYVE_API}/devices", headers=headers) as r:
             devices = await r.json()
 
