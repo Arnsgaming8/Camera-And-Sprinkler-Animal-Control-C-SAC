@@ -285,18 +285,28 @@ class BlinkWatcher:
             print(f"  ERROR: Accessing camera failed: {e}")
             return
 
-        try:
-            await camera.update(force_cache=True)
-        except Exception as e:
-            errors.log_error("check_motion.camera_update", str(e), exc_info=True)
-            print(f"  ERROR: Camera update failed: {e}")
-            return
-
         motion_now = camera.motion_detected
         record_now = camera.last_record
         print(f"  Camera check: motion={motion_now}, last_record={'set' if record_now else None}")
 
-        if motion_now or (record_now and record_now != self.last_record):
+        motion_detected = bool(motion_now) or bool(record_now and record_now != self.last_record)
+
+        if not motion_detected:
+            try:
+                from blinkpy import api as blink_api
+                for name, sync_mod in self.blink.sync.items():
+                    events_resp = await blink_api.request_sync_events(self.blink, sync_mod.network_id)
+                    if events_resp and isinstance(events_resp, list):
+                        for ev in events_resp:
+                            cam = ev.get("camera_name", "") or ev.get("device_name", "")
+                            if cam == CONFIG["camera_name"] and ev.get("type") == "motion":
+                                motion_detected = True
+                                print(f"  Motion detected via sync events: {ev.get('type')}")
+                                break
+            except Exception as e:
+                pass
+
+        if motion_detected:
             if record_now:
                 self.last_record = record_now
                 try:
