@@ -8,4 +8,4 @@ device_id: "607220244f0c161d5a0d1648"
 zone_number: 6
 duration_seconds: 20
 
-poll_interval_seconds: 1
+poll_interval_seconds: 30
