@@ -215,6 +215,10 @@ class BlinkWatcher:
             print(f"  ERROR: Stopping zone {zone} failed: {e}")
 
     async def check_motion(self):
+        if self.blink.urls is None:
+            errors.log_error("check_motion.skip", "Blink not authenticated — skipping check (session expired or 2FA pending)")
+            print("  Blink not authenticated, skipping check")
+            return
         try:
             await self.blink.refresh()
         except Exception as e:
