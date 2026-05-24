@@ -152,9 +152,8 @@ async function submit2FA() {
     if (text.startsWith("{")) {
       const data = JSON.parse(text);
       if (data.ok) {
-        status.textContent = "2FA completed! Bridge is starting...";
-        status.style.color = "#3fb950";
-        document.getElementById("twofaBanner").classList.remove("show");
+        status.textContent = "Code submitted, verifying...";
+        status.style.color = "#d29922";
         return;
       }
       status.textContent = "Error: " + (data.error || "unknown");
@@ -181,15 +180,25 @@ async function resend2FA() {
     status.style.color = "#da3633";
   }
 }
+let prevRequired = null;
 async function check2FA() {
   try {
     const r = await fetch("/api/blink/2fa/status");
     const data = await r.json();
+    const banner = document.getElementById("twofaBanner");
+    const status = document.getElementById("twofaStatus");
     if (data.required) {
-      document.getElementById("twofaBanner").classList.add("show");
-    } else {
-      document.getElementById("twofaBanner").classList.remove("show");
+      banner.classList.add("show");
+      if (prevRequired === false) {
+        status.textContent = "Code was incorrect or expired. Try again.";
+        status.style.color = "#da3633";
+      }
+    } else if (prevRequired === true) {
+      banner.classList.remove("show");
+      status.textContent = "2FA completed! Bridge is running.";
+      status.style.color = "#3fb950";
     }
+    prevRequired = data.required;
   } catch(e) { /* ignore */ }
 }
 setInterval(refresh, 5000);
