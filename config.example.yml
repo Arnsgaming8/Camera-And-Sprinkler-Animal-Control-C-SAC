@@ -1,0 +1,11 @@
+blink_email: "your-blink-email@example.com"
+blink_password: "your-blink-password"
+camera_name: "Front Door"
+
+bhyve_email: "your-bhyve-email@example.com"
+bhyve_password: "your-bhyve-password"
+device_id: "find-this-by-running-python-list_devices.py"
+zone_number: 1
+duration_seconds: 20
+
+poll_interval_seconds: 30
