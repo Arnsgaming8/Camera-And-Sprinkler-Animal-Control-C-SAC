@@ -286,21 +286,23 @@ class BlinkWatcher:
             return
 
         try:
-            record = camera.last_record
+            await camera.update(force_cache=True)
         except Exception as e:
-            errors.log_error("check_motion.last_record", str(e), exc_info=True)
-            print(f"  ERROR: Reading last_record failed: {e}")
+            errors.log_error("check_motion.camera_update", str(e), exc_info=True)
+            print(f"  ERROR: Camera update failed: {e}")
             return
 
-        if not record:
-            return
+        motion_now = camera.motion_detected
+        record_now = camera.last_record
+        print(f"  Camera check: motion={motion_now}, last_record={'set' if record_now else None}")
 
-        if record != self.last_record:
-            self.last_record = record
-            try:
-                save_last_motion(record)
-            except Exception as e:
-                errors.log_error("check_motion.save_record", str(e), exc_info=True)
+        if motion_now or (record_now and record_now != self.last_record):
+            if record_now:
+                self.last_record = record_now
+                try:
+                    save_last_motion(record_now)
+                except Exception as e:
+                    errors.log_error("check_motion.save_record", str(e), exc_info=True)
 
             ts = datetime.now().time().isoformat(timespec="seconds")
             msg = f"[{ts}] Motion detected on {CONFIG['camera_name']}"
