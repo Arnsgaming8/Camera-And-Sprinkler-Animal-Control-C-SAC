@@ -115,10 +115,9 @@ class BHyveClient:
         if self.ws and not self.ws.closed:
             await self.ws.close()
         self.ws = None
-        headers = {"orbit-session-token": self.token}
-        self.ws = await self.session.ws_connect(BHYVE_WS, headers=headers)
+        self.ws = await self.session.ws_connect(BHYVE_WS)
         self._token_for_ws = self.token
-        await self.ws.send_json({"event": "app_connection"})
+        await self.ws.send_json({"event": "app_connection", "orbit_session_token": self.token})
 
     async def _ping_loop(self):
         try:
@@ -144,18 +143,22 @@ class BHyveClient:
                 "stations": [{"station": self.zone, "run_time": minutes}],
             }
             await self.ws.send_json(payload)
-            try:
-                msg = await asyncio.wait_for(self.ws.receive(), timeout=5)
-                if msg.type == aiohttp.WSMsgType.TEXT:
-                    resp = msg.json()
-                    if resp.get("event") == "change_mode" and resp.get("status") != "ok":
-                        raise RuntimeError(f"Server rejected: {resp}")
-            except asyncio.TimeoutError:
-                pass
+            started = False
+            for _ in range(10):
+                try:
+                    msg = await asyncio.wait_for(self.ws.receive(), timeout=3)
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = msg.json()
+                        ev = data.get("event")
+                        if ev == "change_mode" or ev == "watering_in_progress_notification":
+                            started = True
+                            break
+                except asyncio.TimeoutError:
+                    break
+            if not started:
+                raise RuntimeError("No confirmation from server (change_mode not echoed)")
             if self._ping_task is None or self._ping_task.done():
                 self._ping_task = asyncio.ensure_future(self._ping_loop())
-        except asyncio.TimeoutError:
-            pass
         except Exception as e:
             raise RuntimeError(f"Start zone failed: {e}") from e
 
