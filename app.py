@@ -27,7 +27,12 @@ def generate_config():
         print(f"Missing required env vars: {', '.join(missing)}")
         sys.exit(1)
 
-    config = {}
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH) as f:
+            config = yaml.safe_load(f) or {}
+    else:
+        config = {}
+
     for env_key, config_key in ENV_MAP.items():
         val = os.environ.get(env_key)
         if val is not None:
