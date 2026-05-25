@@ -348,8 +348,6 @@ async def process_2fa_code(blink, pin):
         print("  Failed to exchange code. Try Resend Code.")
         return False
     await auth._process_token_data(token_data)
-    delattr(auth, "_oauth_csrf_token")
-    delattr(auth, "_oauth_code_verifier")
     try:
         blink.setup_urls()
         await blink.get_homescreen()
@@ -358,6 +356,11 @@ async def process_2fa_code(blink, pin):
         errors.log_error("blink_2fa_key", f"Post-2FA setup failed: {e}", exc_info=True)
         print(f"  Post-2FA setup failed: {e}")
         return False
+    finally:
+        if hasattr(auth, "_oauth_csrf_token"):
+            delattr(auth, "_oauth_csrf_token")
+        if hasattr(auth, "_oauth_code_verifier"):
+            delattr(auth, "_oauth_code_verifier")
     return True
 
 
