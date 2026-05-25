@@ -396,10 +396,9 @@ async def _manual_water(zone=None, duration_seconds=None):
         async with aiohttp.ClientSession() as session:
             bhyve = BHyveClient(session)
             bhyve.device_id = CONFIG["device_id"]
-            bhyve.zone = zone
             await bhyve.login()
             minutes = max(1, round(duration_seconds / 60))
-            await bhyve.start_zone(minutes)
+            await bhyve.start_zone(zone, minutes)
             errors.log_error("watering", f"Manual zone {zone} started ({duration_seconds}s)")
             await asyncio.sleep(duration_seconds)
             await bhyve.stop_zone()
@@ -409,11 +408,10 @@ async def _manual_water(zone=None, duration_seconds=None):
 
 
 async def handle_config(request):
-    from bridge import CONFIG
+    from bridge import CONFIG, CAMERAS
     return web.json_response({
-        "zone_number": CONFIG.get("zone_number", "?"),
+        "cameras": CAMERAS,
         "device_id": CONFIG.get("device_id", "?"),
-        "duration_seconds": CONFIG.get("duration_seconds", "?"),
     })
 
 

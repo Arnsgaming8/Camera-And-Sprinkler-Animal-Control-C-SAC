@@ -56,6 +56,22 @@ if not isinstance(POLL_INTERVAL, (int, float)) or POLL_INTERVAL < 1:
     print(f"Invalid poll_interval_seconds, defaulting to 30")
     POLL_INTERVAL = 30
 
+raw_cameras = CONFIG.get("cameras")
+if raw_cameras:
+    CAMERAS = []
+    for c in raw_cameras:
+        CAMERAS.append({
+            "name": c["name"],
+            "zone": int(c["zone"]),
+            "duration_seconds": int(c.get("duration_seconds", DURATION_SECONDS)),
+        })
+else:
+    CAMERAS = [{
+        "name": CONFIG.get("camera_name", "?"),
+        "zone": int(CONFIG.get("zone_number", 1)),
+        "duration_seconds": DURATION_SECONDS,
+    }]
+
 
 def load_last_motion():
     try:
@@ -88,7 +104,6 @@ class BHyveClient:
         self._ping_task = None
         self._token_for_ws = None
         self.device_id = CONFIG["device_id"]
-        self.zone = CONFIG["zone_number"]
 
     async def login(self):
         payload = {
@@ -131,7 +146,7 @@ class BHyveClient:
         except asyncio.CancelledError:
             pass
 
-    async def start_zone(self, minutes):
+    async def start_zone(self, zone, minutes):
         try:
             await self.connect_ws()
             ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -141,7 +156,7 @@ class BHyveClient:
                 "mode": "manual",
                 "device_id": self.device_id,
                 "timestamp": ts,
-                "stations": [{"station": self.zone, "run_time": minutes}],
+                "stations": [{"station": zone, "run_time": minutes}],
             }
             await self.ws.send_json(payload)
             started = False
@@ -183,11 +198,11 @@ class BlinkWatcher:
     def __init__(self, blink, bhyve):
         self.blink = blink
         self.bhyve = bhyve
-        self.last_record = load_last_motion()
+        self.last_records = {}
+        for cam in CAMERAS:
+            self.last_records[cam["name"]] = None
 
-    async def water_for_duration(self):
-        secs = DURATION_SECONDS
-        zone = CONFIG['zone_number']
+    async def water_for_duration(self, zone, secs):
         try:
             await self.bhyve.login()
         except Exception as e:
@@ -197,7 +212,7 @@ class BlinkWatcher:
 
         minutes = max(secs / 60, 1 / 60)
         try:
-            await self.bhyve.start_zone(minutes)
+            await self.bhyve.start_zone(zone, minutes)
             msg = f"Zone {zone} watering started ({secs}s)"
             print(f"  {msg}")
             errors.log_error("watering", msg)
@@ -282,30 +297,34 @@ class BlinkWatcher:
             print(f"  ERROR: Blink refresh failed: {e}")
             return
 
-        try:
-            camera = self.blink.cameras.get(CONFIG["camera_name"])
-            if camera is None:
-                names = list(self.blink.cameras.keys())
-                msg = f"Camera '{CONFIG['camera_name']}' not found. Available: {names}"
+        for cam in CAMERAS:
+            name = cam["name"]
+            zone = cam["zone"]
+            secs = cam["duration_seconds"]
+            try:
+                camera = self.blink.cameras.get(name)
+                if camera is None:
+                    names = list(self.blink.cameras.keys())
+                    msg = f"Camera '{name}' not found. Available: {names}"
+                    print(msg)
+                    errors.log_error("check_motion.camera", msg)
+                    continue
+            except Exception as e:
+                errors.log_error("check_motion.camera", f"Error accessing '{name}': {e}", exc_info=True)
+                print(f"  ERROR: Accessing camera '{name}' failed: {e}")
+                continue
+
+            record_now = camera.last_record
+            prev = self.last_records.get(name)
+            print(f"  Camera '{name}' check: last_record={'set' if record_now else None}")
+
+            if record_now and record_now != prev:
+                self.last_records[name] = record_now
+                ts = datetime.now().time().isoformat(timespec="seconds")
+                msg = f"[{ts}] New clip on '{name}' → zone {zone} ({secs}s)"
                 print(msg)
-                errors.log_error("check_motion.camera", msg)
-                return
-        except Exception as e:
-            errors.log_error("check_motion.camera", str(e), exc_info=True)
-            print(f"  ERROR: Accessing camera failed: {e}")
-            return
-
-        record_now = camera.last_record
-        print(f"  Camera check: last_record={'set' if record_now else None}")
-
-        if record_now and record_now != self.last_record:
-            self.last_record = record_now
-            save_last_motion(record_now)
-            ts = datetime.now().time().isoformat(timespec="seconds")
-            msg = f"[{ts}] New clip detected on {CONFIG['camera_name']}"
-            print(msg)
-            errors.log_error("motion", msg)
-            await self.water_for_duration()
+                errors.log_error("motion", msg)
+                await self.water_for_duration(zone, secs)
 
     async def run(self):
         while True:
@@ -366,9 +385,8 @@ async def process_2fa_code(blink, pin):
 
 async def main():
     print("Starting Blink → B-hyve bridge")
-    print(f"  Camera:     {CONFIG.get('camera_name', '?')}")
-    print(f"  Zone:       {CONFIG.get('zone_number', '?')}")
-    print(f"  Duration:   {DURATION_SECONDS}s")
+    for cam in CAMERAS:
+        print(f"  {cam['name']} → zone {cam['zone']} ({cam['duration_seconds']}s)")
     print(f"  Poll every: {POLL_INTERVAL}s")
     print(f"  Errors:     http://localhost:{os.environ.get('ERROR_PORT', 5000)}")
 

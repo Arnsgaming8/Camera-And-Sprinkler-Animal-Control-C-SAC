@@ -9,3 +9,11 @@ zone_number: 6
 duration_seconds: 10
 
 poll_interval_seconds: 10
+
+cameras:
+  - name: "Back yard"
+    zone: 6
+    duration_seconds: 10
+  - name: "Patio"
+    zone: 7
+    duration_seconds: 10
