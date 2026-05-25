@@ -38,6 +38,14 @@ def generate_config():
                     pass
             config[config_key] = val
 
+    cameras_json = os.environ.get("CAMERAS")
+    if cameras_json:
+        import json
+        try:
+            config["cameras"] = json.loads(cameras_json)
+        except json.JSONDecodeError as e:
+            print(f"WARNING: CAMERAS env var is not valid JSON: {e}")
+
     with open(CONFIG_PATH, "w") as f:
         yaml.dump(config, f, default_flow_style=False)
     print(f"Config written to {CONFIG_PATH}")
