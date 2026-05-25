@@ -83,7 +83,7 @@ PAGE = r"""<!DOCTYPE html>
     .entry .copy-btn { padding: 4px 12px; }
     .entry .trace { font-size: 0.72rem; max-height: 200px; }
     .entry .msg { font-size: 0.8rem; }
-    .water-form { flex-direction: column; }
+    .water-form { flex-direction: row; flex-wrap: wrap; }
   }
   .water-form { display: flex; gap: 8px; align-items: center; margin-bottom: 16px;
                 background: #161b22; border: 1px solid #30363d; border-radius: 8px;
