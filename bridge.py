@@ -205,12 +205,13 @@ class BlinkWatcher:
             self.last_watered[cam["zone"]] = 0
 
     async def water_for_duration(self, zone, secs):
-        try:
-            await self.bhyve.login()
-        except Exception as e:
-            errors.log_error("water_for_duration.login", str(e), exc_info=True)
-            print(f"  ERROR: B-hyve login before watering failed: {e}")
-            return
+        if not self.bhyve.token:
+            try:
+                await self.bhyve.login()
+            except Exception as e:
+                errors.log_error("water_for_duration.login", str(e), exc_info=True)
+                print(f"  ERROR: B-hyve login before watering failed: {e}")
+                return
 
         minutes = max(secs / 60, 1 / 60)
         try:
@@ -221,6 +222,7 @@ class BlinkWatcher:
         except Exception as e:
             errors.log_error("water_for_duration.start_zone", str(e), exc_info=True)
             print(f"  ERROR: Starting zone {zone} failed: {e}")
+            self.bhyve.token = None
             return
 
         try:
@@ -273,16 +275,19 @@ class BlinkWatcher:
             if state.reauth_in_progress:
                 print("  Re-auth already in progress, skipping")
                 return
+            backoff = getattr(self, "_reauth_backoff", 30)
             now = time.time()
-            if now - getattr(self, "_last_reauth_attempt", 0) < 30:
+            if now - getattr(self, "_last_reauth_attempt", 0) < backoff:
                 return
             self._last_reauth_attempt = now
             try:
                 ok = await self.blink.start()
                 if not ok:
-                    errors.log_error("check_motion.reauth", "Blink login failed (check credentials or Blink rate-limit)")
-                    print("  Blink start returned False (login failed)")
+                    self._reauth_backoff = min(backoff * 2, 600)
+                    errors.log_error("check_motion.reauth", f"Blink login failed. Rate limited? Retry in {self._reauth_backoff}s")
+                    print(f"  Blink start returned False, retry in {self._reauth_backoff}s")
                     return
+                self._reauth_backoff = 30
             except BlinkTwoFARequiredError:
                 errors.log_error("check_motion.2fa_required", "Blink session expired — enter code on dashboard")
                 print("  Blink session expired, 2FA required")
@@ -419,12 +424,18 @@ async def main():
                     },
                     session=session,
                 )
-                if not await blink.start():
-                    msg = "Blink login failed. Check credentials."
+                attempt = 0
+                while True:
+                    ok = await blink.start()
+                    if ok:
+                        state.active_blink = blink
+                        break
+                    delay = min(30 * (2 ** attempt), 600)
+                    msg = f"Blink login failed (attempt {attempt+1}). Possible rate limit. Retrying in {delay}s..."
                     print(f"  {msg}")
                     errors.log_error("main.blink_setup", msg)
-                    return
-                state.active_blink = blink
+                    attempt += 1
+                    await asyncio.sleep(delay)
             except BlinkTwoFARequiredError:
                 msg = (
                     "Blink requires two-factor authentication. "
