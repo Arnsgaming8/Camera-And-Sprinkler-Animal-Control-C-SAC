@@ -1,5 +1,7 @@
 import asyncio
+import json
 import os
+from datetime import datetime, timezone
 
 import aiohttp
 from aiohttp import web
@@ -447,6 +449,20 @@ async def handle_water_start(request):
     })
 
 
+async def handle_esp32_trigger(request):
+    try:
+        body = await request.json()
+        camera = body.get("camera", "ESP32")
+        zone = int(body.get("zone", 1))
+        duration = int(body.get("duration", 10))
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=400)
+    ts = datetime.now(timezone.utc).time().isoformat(timespec="seconds")
+    errors.log_error("motion", f"[{ts}] ESP32: {camera} → zone {zone} ({duration}s)")
+    asyncio.ensure_future(_manual_water(zone, duration))
+    return web.json_response({"ok": True, "zone": zone, "duration": duration})
+
+
 def create_app():
     app = web.Application()
     app.router.add_get("/", handle_index)
@@ -458,6 +474,7 @@ def create_app():
     app.router.add_post("/api/blink/2fa/resend", handle_2fa_resend)
     app.router.add_get("/api/config", handle_config)
     app.router.add_post("/api/water/start", handle_water_start)
+    app.router.add_post("/api/esp32/trigger", handle_esp32_trigger)
     return app
 
 

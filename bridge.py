@@ -56,6 +56,8 @@ if not isinstance(POLL_INTERVAL, (int, float)) or POLL_INTERVAL < 1:
     print(f"Invalid poll_interval_seconds, defaulting to 30")
     POLL_INTERVAL = 30
 
+DISABLE_BLINK = CONFIG.get("disable_blink_polling", False) or os.environ.get("DISABLE_BLINK_POLLING") == "1"
+
 raw_cameras = CONFIG.get("cameras")
 if raw_cameras:
     CAMERAS = []
@@ -407,6 +409,16 @@ async def main():
         print(f"  {cam['name']} → zone {cam['zone']} ({cam['duration_seconds']}s)")
     print(f"  Poll every: {POLL_INTERVAL}s")
     print(f"  Errors:     http://localhost:{os.environ.get('ERROR_PORT', 5000)}")
+
+    if DISABLE_BLINK:
+        print("  Blink polling disabled (ESP32 handles motion detection)")
+        print("  Bridge idle — waiting for ESP32 triggers...")
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            print("Bridge stopped")
+        return
 
     try:
         async with aiohttp.ClientSession() as session:

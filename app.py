@@ -22,7 +22,9 @@ REQUIRED = ["BLINK_EMAIL", "BLINK_PASSWORD", "BHYVE_EMAIL", "BHYVE_PASSWORD", "D
 
 
 def generate_config():
-    missing = [v for v in REQUIRED if not os.environ.get(v)]
+    blink_disabled = os.environ.get("DISABLE_BLINK_POLLING") == "1"
+    required = [v for v in REQUIRED if not (blink_disabled and v.startswith("BLINK_"))]
+    missing = [v for v in required if not os.environ.get(v)]
     if missing:
         print(f"Missing required env vars: {', '.join(missing)}")
         sys.exit(1)
