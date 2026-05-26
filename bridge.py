@@ -275,19 +275,16 @@ class BlinkWatcher:
             if state.reauth_in_progress:
                 print("  Re-auth already in progress, skipping")
                 return
-            backoff = getattr(self, "_reauth_backoff", 30)
             now = time.time()
-            if now - getattr(self, "_last_reauth_attempt", 0) < backoff:
+            if now - getattr(self, "_last_reauth_attempt", 0) < 30:
                 return
             self._last_reauth_attempt = now
             try:
                 ok = await self.blink.start()
                 if not ok:
-                    self._reauth_backoff = min(backoff * 2, 600)
-                    errors.log_error("check_motion.reauth", f"Blink login failed. Rate limited? Retry in {self._reauth_backoff}s")
-                    print(f"  Blink start returned False, retry in {self._reauth_backoff}s")
+                    errors.log_error("check_motion.reauth", "Blink login failed (check credentials or Blink rate-limit)")
+                    print("  Blink start returned False (login failed)")
                     return
-                self._reauth_backoff = 30
             except BlinkTwoFARequiredError:
                 errors.log_error("check_motion.2fa_required", "Blink session expired — enter code on dashboard")
                 print("  Blink session expired, 2FA required")
@@ -424,18 +421,12 @@ async def main():
                     },
                     session=session,
                 )
-                attempt = 0
-                while True:
-                    ok = await blink.start()
-                    if ok:
-                        state.active_blink = blink
-                        break
-                    delay = min(30 * (2 ** attempt), 600)
-                    msg = f"Blink login failed (attempt {attempt+1}). Possible rate limit. Retrying in {delay}s..."
+                if not await blink.start():
+                    msg = "Blink login failed. Check credentials."
                     print(f"  {msg}")
                     errors.log_error("main.blink_setup", msg)
-                    attempt += 1
-                    await asyncio.sleep(delay)
+                    return
+                state.active_blink = blink
             except BlinkTwoFARequiredError:
                 msg = (
                     "Blink requires two-factor authentication. "
