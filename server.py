@@ -100,6 +100,10 @@ PAGE = r"""<!DOCTYPE html>
   .water-form button.go { background: #238636; border-color: #238636; color: #fff;
                           padding: 6px 20px; font-weight: 600; }
   .water-form button.go:hover { background: #2ea043; }
+  .shutdown { background: #da3633; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; vertical-align: middle; margin-left: 12px; font-weight: 600; }
+  .shutdown:hover { background: #f85149; }
+  .water-form button.cancel-water { background: #da3633; color: #fff; border: none; border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; display: none; }
+  .water-form button.cancel-water:hover { background: #f85149; }
   .sidebar-btn { background: none; border: 1px solid #30363d; color: #c9d1d9;
                  font-size: 1.2rem; padding: 4px 10px; border-radius: 6px; cursor: pointer; }
   .sidebar-btn:hover { background: #30363d; }
@@ -151,7 +155,7 @@ PAGE = r"""<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>Blink → B‑hyve Bridge</h1>
+<h1>Blink → B‑hyve Bridge <button class="shutdown" onclick="shutdownServer()">Shutdown Server</button></h1>
 <p class="sub">Error &amp; event monitor</p>
 
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
@@ -212,6 +216,7 @@ PAGE = r"""<!DOCTYPE html>
     <option value="s">seconds</option>
   </select>
   <button class="go" onclick="customWater()">Go</button>
+  <button class="cancel-water" id="cancelWaterBtn" onclick="cancelWater()">Cancel</button>
   <span id="customStatus" style="color:#8b949e;font-size:0.85rem"></span>
 </div>
 <div id="entries"></div>
@@ -353,11 +358,35 @@ async function pollStatus() {
   } catch(e) { /* ignore */ }
 }
 let waterStatusTimer = null;
+
+async function cancelWater() {
+  const status = document.getElementById("customStatus");
+  const btn = document.getElementById("cancelWaterBtn");
+  try {
+    const r = await fetch("/api/water/stop", {method: "POST"});
+    const data = await r.json();
+    status.textContent = data.ok ? "Watering cancelled" : data.error || "unknown";
+  } catch(e) { status.textContent = "Network error"; }
+  btn.style.display = "none";
+  if (waterStatusTimer) clearTimeout(waterStatusTimer);
+  waterStatusTimer = setTimeout(() => status.textContent = "", 5000);
+}
+
+async function shutdownServer() {
+  if (!confirm("Shut down the server? Render will restart it automatically.")) return;
+  const status = document.getElementById("customStatus");
+  try {
+    const r = await fetch("/api/shutdown", {method: "POST"});
+    status.textContent = "Shutting down...";
+  } catch(e) { status.textContent = "Shutdown failed"; }
+}
+
 async function customWater() {
   const zone = document.getElementById("customZone").value;
   const dur = document.getElementById("customDur").value;
   const unit = document.getElementById("customUnit").value;
   const status = document.getElementById("customStatus");
+  const cancelBtn = document.getElementById("cancelWaterBtn");
   if (waterStatusTimer) clearTimeout(waterStatusTimer);
   if (!zone || !dur) {
     status.textContent = "Enter zone and duration";
@@ -365,6 +394,7 @@ async function customWater() {
     return;
   }
   status.textContent = "Starting...";
+  cancelBtn.style.display = "inline-block";
   try {
     const r = await fetch("/api/water/start", {
       method: "POST",
@@ -373,8 +403,8 @@ async function customWater() {
     });
     const data = await r.json();
     status.textContent = data.ok ? `Zone ${zone} started for ${dur}${unit}` : "Error: " + (data.error || "unknown");
-    waterStatusTimer = setTimeout(() => status.textContent = "", 5000);
-  } catch(e) { status.textContent = "Network error"; waterStatusTimer = setTimeout(() => status.textContent = "", 5000); }
+    waterStatusTimer = setTimeout(() => { status.textContent = ""; cancelBtn.style.display = "none"; }, 5000);
+  } catch(e) { status.textContent = "Network error"; waterStatusTimer = setTimeout(() => { status.textContent = ""; cancelBtn.style.display = "none"; }, 5000); }
 }
 setInterval(refresh, 5000);
 setInterval(check2FA, 5000);
@@ -606,7 +636,10 @@ async def handle_2fa_resend(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
 
+_manual_water_task = None
+
 async def _manual_water(zone=None, duration_seconds=None):
+    global _manual_water_task
     try:
         from bridge import CONFIG, DURATION_SECONDS, BHyveClient
         if zone is None:
@@ -620,11 +653,16 @@ async def _manual_water(zone=None, duration_seconds=None):
             minutes = max(1, round(duration_seconds / 60))
             await bhyve.start_zone(zone, minutes)
             errors.log_error("watering", f"Manual zone {zone} started ({duration_seconds}s)")
-            await asyncio.sleep(duration_seconds)
+            try:
+                await asyncio.sleep(duration_seconds)
+            except asyncio.CancelledError:
+                errors.log_error("watering", f"Manual zone {zone} cancelled by user")
             await bhyve.stop_zone()
             errors.log_error("watering", f"Manual zone {zone} stopped")
     except Exception as e:
         errors.log_error("manual_water", str(e), exc_info=True)
+    finally:
+        _manual_water_task = None
 
 
 async def handle_config(request):
@@ -636,6 +674,7 @@ async def handle_config(request):
 
 
 async def handle_water_start(request):
+    global _manual_water_task
     try:
         body = await request.json()
         zone = body.get("zone")
@@ -649,8 +688,27 @@ async def handle_water_start(request):
         duration_seconds = int(duration) * 60 if unit == "m" else int(duration)
     except Exception:
         return web.json_response({"ok": False, "error": "bad request"}, status=400)
-    asyncio.ensure_future(_manual_water(zone, duration_seconds))
+    _manual_water_task = asyncio.ensure_future(_manual_water(zone, duration_seconds))
     return web.json_response({"ok": True, "zone": zone})
+
+
+async def handle_water_stop(request):
+    global _manual_water_task
+    if _manual_water_task and not _manual_water_task.done():
+        _manual_water_task.cancel()
+        return web.json_response({"ok": True, "message": "Watering cancelled"})
+    return web.json_response({"ok": False, "error": "No active watering"}, status=400)
+
+
+async def handle_shutdown(request):
+    asyncio.ensure_future(_delayed_shutdown())
+    return web.json_response({"ok": True, "message": "Server shutting down..."})
+
+
+async def _delayed_shutdown():
+    await asyncio.sleep(1)
+    print("[shutdown] Server shutting down via /api/shutdown")
+    os._exit(0)
 
 
 async def handle_esp32_trigger(request):
@@ -847,6 +905,8 @@ def create_app():
     app.router.add_post("/api/blink/2fa/resend", handle_2fa_resend)
     app.router.add_get("/api/config", handle_config)
     app.router.add_post("/api/water/start", handle_water_start)
+    app.router.add_post("/api/water/stop", handle_water_stop)
+    app.router.add_post("/api/shutdown", handle_shutdown)
     app.router.add_post("/api/esp32/trigger", handle_esp32_trigger)
     app.router.add_get("/api/cameras", handle_cameras)
     app.router.add_post("/api/cameras", handle_camera_create)
