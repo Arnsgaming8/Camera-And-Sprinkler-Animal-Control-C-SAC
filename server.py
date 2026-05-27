@@ -379,6 +379,10 @@ async function shutdownServer() {
   if (!confirm("Suspend the server on Render? You will need to manually start it from the Render dashboard.")) return;
   document.getElementById("customStatus").textContent = "Suspending server on Render...";
   clearInterval(pollInterval);
+  clearInterval(check2FAInterval);
+  clearInterval(pollStatusInterval);
+  clearInterval(camerasInterval);
+  if (pollCountdown) clearInterval(pollCountdown);
   document.querySelectorAll(".toolbar button").forEach(b => b.disabled = true);
   try {
     await fetch("/api/shutdown", {method: "POST"});
@@ -387,7 +391,8 @@ async function shutdownServer() {
   while (true) {
     await new Promise(r => setTimeout(r, 1000));
     try {
-      await fetch("/api/errors", {method: "GET"});
+      const resp = await fetch("/api/errors");
+      if (!resp.ok) { location.reload(); break; }
     } catch(e) { location.reload(); break; }
   }
 }
@@ -418,9 +423,9 @@ async function customWater() {
   } catch(e) { status.textContent = "Network error"; waterStatusTimer = setTimeout(() => { status.textContent = ""; cancelBtn.style.display = "none"; }, 5000); }
 }
 var pollInterval = setInterval(refresh, 5000);
-setInterval(check2FA, 5000);
-setInterval(pollStatus, 5000);
-setInterval(loadCameras, 5000);
+var check2FAInterval = setInterval(check2FA, 5000);
+var pollStatusInterval = setInterval(pollStatus, 5000);
+var camerasInterval = setInterval(loadCameras, 5000);
 refresh();
 check2FA();
 pollStatus();
