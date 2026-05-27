@@ -299,9 +299,14 @@ async function resend2FA() {
   status.style.color = "#8b949e";
   try {
     const r = await fetch("/api/blink/2fa/resend", { method: "POST" });
-    const text = await r.text();
-    status.textContent = "Response: " + text.slice(0, 200);
-    status.style.color = "#58a6ff";
+    const data = await r.json();
+    if (data.ok) {
+      status.textContent = "New code sent to your email";
+      status.style.color = "#58a6ff";
+    } else {
+      status.textContent = JSON.stringify(data);
+      status.style.color = "#da3633";
+    }
   } catch(e) {
     status.textContent = "Network error: " + e.message;
     status.style.color = "#da3633";
