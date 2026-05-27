@@ -442,11 +442,25 @@ async def main():
                     session=session,
                 )
                 if not await blink.start():
-                    msg = "Blink login failed. Check credentials."
+                    msg = "Blink login failed. Check credentials or rate-limited. Retrying..."
                     print(f"  {msg}")
                     errors.log_error("main.blink_setup", msg)
-                    return
-                state.active_blink = blink
+                    retry = 60
+                    while True:
+                        await asyncio.sleep(retry)
+                        print(f"  Retrying Blink login in {retry}s...")
+                        try:
+                            if await blink.start():
+                                state.active_blink = blink
+                                print("  Blink login successful on retry")
+                                break
+                        except BlinkTwoFARequiredError:
+                            raise
+                        except Exception:
+                            pass
+                        retry = min(retry * 2, 3600)
+                else:
+                    state.active_blink = blink
             except BlinkTwoFARequiredError:
                 msg = (
                     "Blink requires two-factor authentication. "
