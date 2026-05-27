@@ -653,9 +653,10 @@ async def handle_2fa_resend(request):
 
 
 _manual_water_task = None
+_water_pending = False
 
 async def _manual_water(zone=None, duration_seconds=None):
-    global _manual_water_task
+    global _manual_water_task, _water_pending
     try:
         from bridge import CONFIG, DURATION_SECONDS, BHyveClient
         if zone is None:
@@ -679,6 +680,7 @@ async def _manual_water(zone=None, duration_seconds=None):
         errors.log_error("manual_water", str(e), exc_info=True)
     finally:
         _manual_water_task = None
+        _water_pending = False
 
 
 async def handle_config(request):
@@ -690,7 +692,7 @@ async def handle_config(request):
 
 
 async def handle_water_start(request):
-    global _manual_water_task
+    global _manual_water_task, _water_pending
     try:
         body = await request.json()
         zone = body.get("zone")
@@ -704,13 +706,14 @@ async def handle_water_start(request):
         duration_seconds = int(duration) * 60 if unit == "m" else int(duration)
     except Exception:
         return web.json_response({"ok": False, "error": "bad request"}, status=400)
+    _water_pending = True
     _manual_water_task = asyncio.ensure_future(_manual_water(zone, duration_seconds))
     return web.json_response({"ok": True, "zone": zone})
 
 
 async def handle_water_stop(request):
-    global _manual_water_task
-    if _manual_water_task and not _manual_water_task.done():
+    global _manual_water_task, _water_pending
+    if _water_pending and _manual_water_task and not _manual_water_task.done():
         _manual_water_task.cancel()
         return web.json_response({"ok": True, "message": "Watering cancelled"})
     return web.json_response({"ok": False, "error": "No active watering"}, status=400)
