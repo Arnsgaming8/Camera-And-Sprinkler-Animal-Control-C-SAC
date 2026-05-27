@@ -66,12 +66,14 @@ if raw_cameras:
             "name": c["name"],
             "zone": int(c["zone"]),
             "duration_seconds": int(c.get("duration_seconds", DURATION_SECONDS)),
+            "arm": c.get("arm", True),
         })
 else:
     CAMERAS = [{
         "name": CONFIG.get("camera_name", "?"),
         "zone": int(CONFIG.get("zone_number", 1)),
         "duration_seconds": DURATION_SECONDS,
+        "arm": True,
     }]
 
 

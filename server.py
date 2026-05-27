@@ -12,8 +12,6 @@ import state
 HOST = os.environ.get("ERROR_HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT") or os.environ.get("ERROR_PORT") or "5000")
 
-CAMERA_ARM_STATE = {}  # name -> bool, tracked server-side for instant toggle feedback
-
 
 PAGE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -659,7 +657,9 @@ async def handle_esp32_trigger(request):
 
 def _cameras_json():
     from bridge import CAMERAS
-    return json.dumps([{"name": c["name"], "zone": c["zone"], "duration_seconds": c.get("duration_seconds", 3)} for c in CAMERAS])
+    return json.dumps([{"name": c["name"], "zone": c["zone"],
+                        "duration_seconds": c.get("duration_seconds", 3),
+                        "arm": c.get("arm", True)} for c in CAMERAS])
 
 
 async def _sync_cameras_config(event_label):
@@ -708,15 +708,11 @@ async def handle_cameras(request):
     result = []
     for cam in CAMERAS:
         name = cam["name"]
-        if name in CAMERA_ARM_STATE:
-            armed = CAMERA_ARM_STATE[name]
-        else:
-            armed = False
-            if connected:
-                c = blink.cameras.get(name)
-                if c is not None:
-                    armed = bool(getattr(c, "arm", False))
-            CAMERA_ARM_STATE[name] = armed
+        armed = cam.get("arm", True)
+        if connected:
+            c = blink.cameras.get(name)
+            if c is not None:
+                armed = bool(getattr(c, "arm", armed))
         result.append({
             "name": name,
             "zone": cam["zone"],
@@ -727,6 +723,7 @@ async def handle_cameras(request):
 
 
 async def handle_camera_arm(request):
+    from bridge import CAMERAS
     name = request.match_info.get("name", "")
     try:
         body = await request.json()
@@ -740,7 +737,10 @@ async def handle_camera_arm(request):
     if not camera:
         return web.json_response({"ok": False, "error": f"Camera '{name}' not found"}, status=404)
     await camera.async_arm(armed)
-    CAMERA_ARM_STATE[name] = armed
+    for cam in CAMERAS:
+        if cam["name"] == name:
+            cam["arm"] = armed
+            break
     errors.log_error("arming", f"{'Enabled' if armed else 'Disabled'} motion on '{name}'")
     return web.json_response({"ok": True, "name": name, "armed": armed})
 
@@ -801,7 +801,7 @@ async def handle_camera_create(request):
     if any(c["name"] == name for c in CAMERAS):
         return web.json_response({"ok": False, "error": f"Camera '{name}' already exists"}, status=409)
 
-    new_cam = {"name": name, "zone": zone, "duration_seconds": duration}
+    new_cam = {"name": name, "zone": zone, "duration_seconds": duration, "arm": True}
     CAMERAS.append(new_cam)
     await _sync_cameras_config("camera_create")
     return web.json_response({"ok": True, "camera": new_cam})
