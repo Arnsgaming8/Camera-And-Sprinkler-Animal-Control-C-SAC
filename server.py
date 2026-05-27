@@ -340,7 +340,7 @@ async function manualRefresh() {
 async function refresh() {
   let r, errors;
   try {
-    r = await fetch("/api/errors");
+    r = await fetch("/api/errors" + _nocache());
     errors = await r.json();
   } catch(e) { return; }
   const container = document.getElementById("entries");
@@ -438,7 +438,7 @@ async function resend2FA() {
 let prevRequired = null;
 async function check2FA() {
   try {
-    const r = await fetch("/api/blink/2fa/status");
+    const r = await fetch("/api/blink/2fa/status" + _nocache());
     const data = await r.json();
     const banner = document.getElementById("twofaBanner");
     const status = document.getElementById("twofaStatus");
@@ -459,7 +459,7 @@ async function check2FA() {
 let pollCountdown = null;
 async function pollStatus() {
   try {
-    const r = await fetch("/api/status");
+    const r = await fetch("/api/status" + _nocache());
     const data = await r.json();
     const el = document.getElementById("pollStatus");
     if (data.last_poll && data.poll_interval) {
@@ -554,9 +554,10 @@ function toggleSidebar() {
   o.classList.toggle("show", open);
 }
 const armPending = {};
+function _nocache() { return "?t=" + Date.now(); }
 async function loadCameras() {
   try {
-    const r = await fetch("/api/cameras");
+    const r = await fetch("/api/cameras" + _nocache());
     const data = await r.json();
     const el = document.getElementById("camList");
     el.innerHTML = (!data.connected
@@ -594,7 +595,7 @@ async function armCamera(name, armed, checkbox) {
 async function openEditModal(name) {
   document.getElementById("modalTitle").textContent = "Edit Camera";
   document.getElementById("modalDelete").style.display = "";
-  const r = await fetch("/api/cameras");
+  const r = await fetch("/api/cameras" + _nocache());
   const data = await r.json();
   const c = data.cameras.find(x => x.name === name);
   if (!c) return;
