@@ -86,6 +86,7 @@ PAGE = r"""<!DOCTYPE html>
     .entry .trace { font-size: 0.72rem; max-height: 200px; }
     .entry .msg { font-size: 0.8rem; }
     .water-form { flex-direction: row; flex-wrap: wrap; }
+    .sidebar { width: 260px; left: -280px; padding: 16px; }
   }
   .water-form { display: flex; gap: 8px; align-items: center; margin-bottom: 16px;
                 background: #161b22; border: 1px solid #30363d; border-radius: 8px;
@@ -99,11 +100,45 @@ PAGE = r"""<!DOCTYPE html>
   .water-form button.go { background: #238636; border-color: #238636; color: #fff;
                           padding: 6px 20px; font-weight: 600; }
   .water-form button.go:hover { background: #2ea043; }
+  .sidebar-btn { background: none; border: 1px solid #30363d; color: #c9d1d9;
+                 font-size: 1.2rem; padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+  .sidebar-btn:hover { background: #30363d; }
+  .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                     background: rgba(0,0,0,0.5); z-index: 98; display: none; }
+  .sidebar-overlay.show { display: block; }
+  .sidebar { position: fixed; top: 0; left: -320px; width: 300px; height: 100%;
+             background: #161b22; border-right: 1px solid #30363d; z-index: 99;
+             transition: left 0.25s; padding: 20px; overflow-y: auto; }
+  .sidebar.open { left: 0; }
+  .sidebar h2 { font-size: 1.1rem; margin-bottom: 16px; color: #c9d1d9; }
+  .sidebar .close { float: right; background: none; border: none; color: #8b949e;
+                    font-size: 1.4rem; cursor: pointer; padding: 0 4px; }
+  .sidebar .close:hover { color: #f85149; }
+  .sidebar .cam-item { display: flex; align-items: center; gap: 10px;
+                       padding: 10px 0; border-bottom: 1px solid #21262d; }
+  .sidebar .cam-name { flex: 1; font-size: 0.9rem; }
+  .sidebar .cam-zone { color: #8b949e; font-size: 0.8rem; }
+  .switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+                    background: #30363d; border-radius: 22px; cursor: pointer; transition: 0.2s; }
+  .switch .slider::before { content: ""; position: absolute; height: 16px; width: 16px;
+                            left: 3px; bottom: 3px; background: #8b949e; border-radius: 50%;
+                            transition: 0.2s; }
+  .switch input:checked + .slider { background: #238636; }
+  .switch input:checked + .slider::before { transform: translateX(18px); background: #fff; }
 </style>
 </head>
 <body>
 <h1>Blink → B‑hyve Bridge</h1>
 <p class="sub">Error &amp; event monitor</p>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<div class="sidebar" id="sidebar">
+  <button class="close" onclick="toggleSidebar()">&times;</button>
+  <h2>Cameras</h2>
+  <div id="camList"></div>
+</div>
 
 <div class="twofa-banner" id="twofaBanner">
   <h3>&#9888; Two-Factor Authentication Required</h3>
@@ -117,6 +152,7 @@ PAGE = r"""<!DOCTYPE html>
 </div>
 
 <div class="toolbar">
+  <button class="sidebar-btn" onclick="toggleSidebar()">&#9776;</button>
   <span class="badge" id="count">0 errors</span>
   <span class="badge" id="pollStatus" style="font-size:0.8rem">poll: --</span>
   <button onclick="refresh()">Refresh</button>
@@ -289,9 +325,42 @@ async function customWater() {
 setInterval(refresh, 5000);
 setInterval(check2FA, 5000);
 setInterval(pollStatus, 5000);
+setInterval(loadCameras, 5000);
 refresh();
 check2FA();
 pollStatus();
+loadCameras();
+
+function toggleSidebar() {
+  const s = document.getElementById("sidebar");
+  const o = document.getElementById("sidebarOverlay");
+  const open = s.classList.toggle("open");
+  o.classList.toggle("show", open);
+}
+async function loadCameras() {
+  try {
+    const r = await fetch("/api/cameras");
+    const data = await r.json();
+    const el = document.getElementById("camList");
+    el.innerHTML = data.map(c => `<div class="cam-item">
+      <label class="switch">
+        <input type="checkbox" ${c.armed ? "checked" : ""} onchange="armCamera('${esc(c.name)}', this.checked)">
+        <span class="slider"></span>
+      </label>
+      <span class="cam-name">${esc(c.name)}</span>
+      <span class="cam-zone">zone ${c.zone}</span>
+    </div>`).join("");
+  } catch(e) { /* ignore */ }
+}
+async function armCamera(name, armed) {
+  try {
+    await fetch("/api/camera/" + encodeURIComponent(name) + "/arm", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({armed})
+    });
+  } catch(e) { /* ignore */ }
+}
 </script>
 </body>
 </html>"""
@@ -463,6 +532,42 @@ async def handle_esp32_trigger(request):
     return web.json_response({"ok": True, "zone": zone, "duration": duration})
 
 
+async def handle_cameras(request):
+    from bridge import CAMERAS
+    blink = state.active_blink
+    result = []
+    for cam in CAMERAS:
+        armed = False
+        if blink and blink.cameras:
+            c = blink.cameras.get(cam["name"])
+            if c:
+                armed = bool(c.arm)
+        result.append({
+            "name": cam["name"],
+            "zone": cam["zone"],
+            "armed": armed,
+        })
+    return web.json_response(result)
+
+
+async def handle_camera_arm(request):
+    name = request.match_info.get("name", "")
+    try:
+        body = await request.json()
+        armed = bool(body.get("armed", False))
+    except Exception:
+        return web.json_response({"ok": False, "error": "bad request"}, status=400)
+    blink = state.active_blink
+    if not blink or not blink.cameras:
+        return web.json_response({"ok": False, "error": "Blink not connected"}, status=503)
+    camera = blink.cameras.get(name)
+    if not camera:
+        return web.json_response({"ok": False, "error": f"Camera '{name}' not found"}, status=404)
+    await camera.async_arm(armed)
+    errors.log_error("arming", f"{'Enabled' if armed else 'Disabled'} motion on '{name}'")
+    return web.json_response({"ok": True, "name": name, "armed": armed})
+
+
 def create_app():
     app = web.Application()
     app.router.add_get("/", handle_index)
@@ -475,6 +580,8 @@ def create_app():
     app.router.add_get("/api/config", handle_config)
     app.router.add_post("/api/water/start", handle_water_start)
     app.router.add_post("/api/esp32/trigger", handle_esp32_trigger)
+    app.router.add_get("/api/cameras", handle_cameras)
+    app.router.add_post("/api/camera/{name}/arm", handle_camera_arm)
     return app
 
 
