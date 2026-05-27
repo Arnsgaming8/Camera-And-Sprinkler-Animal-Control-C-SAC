@@ -418,6 +418,7 @@ async function customWater() {
       body: JSON.stringify({zone: parseInt(zone), duration: parseInt(dur), unit})
     });
     const data = await r.json();
+    if (data.cancelled) { status.textContent = "Cancelled"; return; }
     status.textContent = data.ok ? `Zone ${zone} started for ${dur}${unit}` : "Error: " + (data.error || "unknown");
     waterStatusTimer = setTimeout(() => { status.textContent = ""; cancelBtn.style.display = "none"; }, 5000);
   } catch(e) { status.textContent = "Network error"; waterStatusTimer = setTimeout(() => { status.textContent = ""; cancelBtn.style.display = "none"; }, 5000); }
@@ -654,10 +655,14 @@ async def handle_2fa_resend(request):
 
 _manual_water_task = None
 _water_pending = False
+_water_cancel_requested = False
 
 async def _manual_water(zone=None, duration_seconds=None):
-    global _manual_water_task, _water_pending
+    global _manual_water_task, _water_pending, _water_cancel_requested
     try:
+        if _water_cancel_requested:
+            errors.log_error("watering", "Manual water aborted before start (cancel requested)")
+            return
         from bridge import CONFIG, DURATION_SECONDS, BHyveClient
         if zone is None:
             zone = CONFIG["zone_number"]
@@ -674,13 +679,18 @@ async def _manual_water(zone=None, duration_seconds=None):
                 await asyncio.sleep(duration_seconds)
             except asyncio.CancelledError:
                 errors.log_error("watering", f"Manual zone {zone} cancelled by user")
-            await bhyve.stop_zone()
+            try:
+                await bhyve.stop_zone()
+            except Exception:
+                pass
             errors.log_error("watering", f"Manual zone {zone} stopped")
     except Exception as e:
         errors.log_error("manual_water", str(e), exc_info=True)
     finally:
         _manual_water_task = None
         _water_pending = False
+        _water_cancel_requested = False
+        errors.log_error("watering", "Manual water task cleanup done")
 
 
 async def handle_config(request):
@@ -692,29 +702,41 @@ async def handle_config(request):
 
 
 async def handle_water_start(request):
-    global _manual_water_task, _water_pending
+    global _manual_water_task, _water_pending, _water_cancel_requested
+    _water_pending = True
+    _water_cancel_requested = False
     try:
         body = await request.json()
         zone = body.get("zone")
         duration = body.get("duration")
         unit = body.get("unit", "m")
         if zone is None or zone < 1:
+            _water_pending = False
             return web.json_response({"ok": False, "error": "zone must be >= 1"}, status=400)
         if duration is None or duration < 1:
+            _water_pending = False
             return web.json_response({"ok": False, "error": "duration must be >= 1"}, status=400)
         zone = int(zone)
         duration_seconds = int(duration) * 60 if unit == "m" else int(duration)
     except Exception:
+        _water_pending = False
         return web.json_response({"ok": False, "error": "bad request"}, status=400)
-    _water_pending = True
+
+    if _water_cancel_requested:
+        _water_pending = False
+        _water_cancel_requested = False
+        return web.json_response({"ok": True, "zone": zone, "cancelled": True})
+
     _manual_water_task = asyncio.ensure_future(_manual_water(zone, duration_seconds))
     return web.json_response({"ok": True, "zone": zone})
 
 
 async def handle_water_stop(request):
-    global _manual_water_task, _water_pending
-    if _water_pending and _manual_water_task and not _manual_water_task.done():
-        _manual_water_task.cancel()
+    global _manual_water_task, _water_pending, _water_cancel_requested
+    if _water_pending:
+        _water_cancel_requested = True
+        if _manual_water_task and not _manual_water_task.done():
+            _manual_water_task.cancel()
         return web.json_response({"ok": True, "message": "Watering cancelled"})
     return web.json_response({"ok": False, "error": "No active watering"}, status=400)
 
