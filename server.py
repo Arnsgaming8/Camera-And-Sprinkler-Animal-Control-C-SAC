@@ -635,22 +635,16 @@ async def handle_water_start(request):
         zone = body.get("zone")
         duration = body.get("duration")
         unit = body.get("unit", "m")
-        if duration and unit == "s":
-            duration_seconds = int(duration)
-        elif duration:
-            duration_seconds = int(duration) * 60
-        else:
-            zone = None
-            duration_seconds = None
+        if zone is None or zone < 1:
+            return web.json_response({"ok": False, "error": "zone must be >= 1"}, status=400)
+        if duration is None or duration < 1:
+            return web.json_response({"ok": False, "error": "duration must be >= 1"}, status=400)
+        zone = int(zone)
+        duration_seconds = int(duration) * 60 if unit == "m" else int(duration)
     except Exception:
-        zone = None
-        duration_seconds = None
+        return web.json_response({"ok": False, "error": "bad request"}, status=400)
     asyncio.ensure_future(_manual_water(zone, duration_seconds))
-    from bridge import CONFIG
-    return web.json_response({
-        "ok": True,
-        "zone": zone if zone else CONFIG.get("zone_number"),
-    })
+    return web.json_response({"ok": True, "zone": zone})
 
 
 async def handle_esp32_trigger(request):
