@@ -383,8 +383,7 @@ async function shutdownServer() {
   try {
     await fetch("/api/shutdown", {method: "POST"});
   } catch(e) { /* server is down, expected */ }
-  document.getElementById("entries").innerHTML =
-    '<div class="empty"><div class="icon">&#9888;</div>Server suspended on Render. Go to the <a href="https://dashboard.render.com" target="_blank">Render Dashboard</a> to start it again.</div>';
+  setTimeout(() => location.reload(), 3000);
 }
 
 async function customWater() {
