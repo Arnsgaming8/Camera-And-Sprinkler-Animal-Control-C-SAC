@@ -753,14 +753,32 @@ async def handle_shutdown(request):
 
 
 async def _suspend_service():
+    global _manual_water_task, _water_pending
+
+    if _manual_water_task and not _manual_water_task.done():
+        _manual_water_task.cancel()
+
+    from bridge import CONFIG, BHyveClient
+    async with aiohttp.ClientSession() as session:
+        try:
+            bhyve = BHyveClient(session)
+            bhyve.device_id = CONFIG["device_id"]
+            await bhyve.login()
+            await bhyve.stop_zone()
+        except Exception:
+            pass
+
+    _manual_water_task = None
+    _water_pending = False
+
     service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")
     api_key = os.environ.get("RENDER_API_KEY")
     if not service_id or not api_key:
         errors.log_error("shutdown", "RENDER_SERVICE_ID or RENDER_API_KEY not set — cannot suspend")
         return
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        async with aiohttp.ClientSession() as session2:
+            async with session2.post(
                 f"https://api.render.com/v1/services/{service_id}/suspend",
                 headers={"Authorization": f"Bearer {api_key}"},
             ) as resp:
