@@ -15,8 +15,7 @@ cameras:
   no_water: false
   zone: 7
 device_id: dummy
-disable_blink_polling: true
 duration_seconds: 3
 poll_interval_seconds: 30
-render_api_key: "rnd_iorOVlbvoJoYFsk6e3YDmBEBQUDU"
+render_api_key: ''
 zone_number: 6

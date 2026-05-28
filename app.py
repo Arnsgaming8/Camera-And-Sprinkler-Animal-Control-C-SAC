@@ -17,6 +17,7 @@ ENV_MAP = {
     "DURATION_SECONDS": "duration_seconds",
     "POLL_INTERVAL_SECONDS": "poll_interval_seconds",
     "RENDER_API_KEY": "render_api_key",
+    "DISABLE_BLINK_POLLING": "disable_blink_polling",
 }
 
 REQUIRED = ["BLINK_EMAIL", "BLINK_PASSWORD", "BHYVE_EMAIL", "BHYVE_PASSWORD", "DEVICE_ID"]
