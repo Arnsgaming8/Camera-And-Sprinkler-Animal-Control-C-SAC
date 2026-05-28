@@ -23,20 +23,23 @@ REQUIRED = ["BLINK_EMAIL", "BLINK_PASSWORD", "BHYVE_EMAIL", "BHYVE_PASSWORD", "D
 
 
 def generate_config():
-    if not os.path.exists(CONFIG_PATH):
-        print("No config.yml found. Starting in setup mode.")
-        os.environ["SETUP_MODE"] = "1"
-        config = {}
-    else:
-        blink_disabled = os.environ.get("DISABLE_BLINK_POLLING") == "1"
-        required = [v for v in REQUIRED if not (blink_disabled and v.startswith("BLINK_"))]
-        missing = [v for v in required if not os.environ.get(v)]
-        if missing:
-            print(f"Missing credentials. Starting in setup mode. Set these env vars: {', '.join(missing)}")
-            os.environ["SETUP_MODE"] = "1"
-
+    if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH) as f:
             config = yaml.safe_load(f) or {}
+    else:
+        config = {}
+
+    blink_disabled = os.environ.get("DISABLE_BLINK_POLLING") == "1"
+    required = [v for v in REQUIRED if not (blink_disabled and v.startswith("BLINK_"))]
+
+    has_creds = all(os.environ.get(v) for v in required) or (
+        config.get("bhyve_email") and config.get("bhyve_password") and config.get("device_id")
+        and (blink_disabled or (config.get("blink_email") and config.get("blink_password")))
+    )
+
+    if not has_creds:
+        print("Missing credentials. Starting in setup mode.")
+        os.environ["SETUP_MODE"] = "1"
 
     for env_key, config_key in ENV_MAP.items():
         val = os.environ.get(env_key)
