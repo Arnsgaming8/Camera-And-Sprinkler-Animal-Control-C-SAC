@@ -333,6 +333,8 @@ class BlinkWatcher:
 
             if cam.get("no_water", False):
                 print(f"  Motion on '{name}' — no_water enabled, skipping sprinklers")
+                if camera.last_record:
+                    self.last_records[name] = camera.last_record
                 continue
 
             cooldown = max(POLL_INTERVAL, secs + 5)
