@@ -1033,6 +1033,8 @@ async def _sync_cameras_config(event_label):
         errors.log_error(f"{event_label}.save_yml", str(e), exc_info=True)
 
     api_key = os.environ.get("RENDER_API_KEY")
+    if not api_key:
+        errors.log_error(f"{event_label}.warning", "RENDER_API_KEY not set — camera changes won't survive restart on Render")
     if api_key:
         import aiohttp
         service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")

@@ -1,20 +1,22 @@
-blink_email: "ajusunaina@gmail.com"
-blink_password: "3002Sharm@1"
-camera_name: "Back yard"
-
-bhyve_email: "ajusunaina@gmail.com"
-bhyve_password: "Sharmjug@1"
-device_id: "607220244f0c161d5a0d1648"
-zone_number: 6
+bhyve_email: dummy@test.com
+bhyve_password: dummy
+blink_email: dummy@test.com
+blink_password: dummy
+camera_name: Back yard
+cameras:
+- arm: true
+  duration_seconds: 3
+  name: Back yard
+  no_water: false
+  zone: 6
+- arm: true
+  duration_seconds: 3
+  name: Patio
+  no_water: false
+  zone: 7
+device_id: dummy
+disable_blink_polling: true
 duration_seconds: 3
-
 poll_interval_seconds: 30
 render_api_key: "rnd_iorOVlbvoJoYFsk6e3YDmBEBQUDU"
-
-cameras:
-  - name: "Back yard"
-    zone: 6
-    duration_seconds: 3
-  - name: "Patio"
-    zone: 7
-    duration_seconds: 3
+zone_number: 6
