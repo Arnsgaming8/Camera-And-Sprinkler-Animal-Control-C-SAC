@@ -977,8 +977,9 @@ async def _suspend_service():
     service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")
     api_key = os.environ.get("RENDER_API_KEY")
     if not service_id or not api_key:
-        errors.log_error("shutdown", "RENDER_SERVICE_ID or RENDER_API_KEY not set — cannot suspend")
-        return
+        print("Shutdown: Render API not configured — exiting process; Render will auto-restart")
+        await asyncio.sleep(2)
+        os._exit(0)
     try:
         async with aiohttp.ClientSession() as session2:
             async with session2.post(
