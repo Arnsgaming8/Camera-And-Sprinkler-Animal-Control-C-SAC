@@ -574,7 +574,7 @@ async function loadCameras() {
       const armed = c.name in armPending ? armPending[c.name] : c.armed;
       return `<div class="cam-item">
       <label class="switch">
-        <input type="checkbox" ${armed ? "checked" : ""} ${data.connected ? "" : "disabled"}
+        <input type="checkbox" ${armed ? "checked" : ""}
                onchange="armCamera('${esc(c.name)}', this.checked, this)">
         <span class="slider"></span>
       </label>
@@ -1118,13 +1118,13 @@ async def handle_camera_arm(request):
     except Exception:
         return web.json_response({"ok": False, "error": "bad request"}, status=400)
     blink = state.active_blink
-    if not blink or not blink.cameras:
-        return web.json_response({"ok": False, "error": "Blink not connected"}, status=503)
-    camera = blink.cameras.get(name)
-    if not camera:
-        return web.json_response({"ok": False, "error": f"Camera '{name}' not found"}, status=404)
-    await camera.async_arm(armed)
-    camera.arm = armed
+    if blink and blink.cameras:
+        camera = blink.cameras.get(name)
+        if camera:
+            await camera.async_arm(armed)
+            camera.arm = armed
+        else:
+            return web.json_response({"ok": False, "error": f"Camera '{name}' not found"}, status=404)
     for cam in CAMERAS:
         if cam["name"] == name:
             cam["arm"] = armed
