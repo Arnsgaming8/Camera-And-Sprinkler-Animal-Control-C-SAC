@@ -285,7 +285,6 @@ PAGE = r"""<!DOCTYPE html>
   <h2>Cameras</h2>
   <div id="camList"></div>
   <button class="logout-btn" onclick="openLogout()">Log Out</button>
-  <button class="logout-btn" onclick="foreverLogout()" style="background:#8b0000;margin-top:6px">Forever Logout</button>
 </div>
 
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal()"></div>
@@ -319,6 +318,7 @@ PAGE = r"""<!DOCTYPE html>
       <button class="primary" onclick="showReauth('bhyve')">B-hyve</button>
       <button class="danger" onclick="showReauth('both')">Both</button>
       <button onclick="closeLogout()">Cancel</button>
+      <button onclick="foreverLogout()" style="background:#8b0000;color:#fff;border:none;margin-top:8px;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600">Forever Logout</button>
     </div>
   </div>
   <div id="logoutStep2" style="display:none">
