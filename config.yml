@@ -2,18 +2,7 @@ bhyve_email: dummy@test.com
 bhyve_password: dummy
 blink_email: dummy@test.com
 blink_password: dummy
-camera_name: Back yard
-cameras:
-- arm: true
-  duration_seconds: 3
-  name: Back yard
-  no_water: false
-  zone: 6
-- arm: true
-  duration_seconds: 3
-  name: Patio
-  no_water: false
-  zone: 7
+cameras: []
 device_id: dummy
 duration_seconds: 3
 poll_interval_seconds: 30
