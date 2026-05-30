@@ -341,6 +341,13 @@ PAGE = r"""<!DOCTYPE html>
       <button onclick="closeLogout()">Cancel</button>
     </div>
   </div>
+  <div id="logoutConfirm" style="display:none">
+    <p style="color:#8b949e;font-size:0.85rem;margin-bottom:16px">Clear saved credentials and log out of both accounts? You'll need to re-enter credentials to reconnect.</p>
+    <div class="modal-actions">
+      <button class="danger" onclick="confirmForeverLogout()">Yes, Log Out Forever</button>
+      <button onclick="cancelForeverLogout()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <div class="modal" id="qrBox">
@@ -802,6 +809,12 @@ function closeQr() {
   document.getElementById("qrBox").classList.remove("show");
 }
 async function foreverLogout() {
+  document.getElementById("logoutStep1").style.display = "none";
+  document.getElementById("logoutStep2").style.display = "none";
+  document.getElementById("logoutConfirm").style.display = "block";
+}
+async function confirmForeverLogout() {
+  document.getElementById("logoutConfirm").style.display = "none";
   closeLogout();
   showToast("Logging out both accounts...");
   try {
@@ -820,6 +833,10 @@ async function foreverLogout() {
       location.href = "/setup";
     }
   } catch(e) { showToast("Network error logging out", true); }
+}
+function cancelForeverLogout() {
+  document.getElementById("logoutConfirm").style.display = "none";
+  document.getElementById("logoutStep1").style.display = "block";
 }
 async function saveCamera(oldName) {
   const name = document.getElementById("modalName").value.trim();
