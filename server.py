@@ -66,7 +66,7 @@ SETUP_PAGE = r"""<!DOCTYPE html>
 <div class="card">
   <h2>Device</h2>
   <label>Device ID</label>
-  <input type="text" id="deviceId" placeholder="e.g. 607220244f0c161d5a0d1648">
+  <input type="text" id="deviceId" placeholder="your device id here">
   <div class="hint">Found in the B-hyve app or by running list_devices.py.</div>
 </div>
 
