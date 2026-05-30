@@ -285,6 +285,7 @@ PAGE = r"""<!DOCTYPE html>
   <h2>Cameras</h2>
   <div id="camList"></div>
   <button class="logout-btn" onclick="openLogout()">Log Out</button>
+  <button class="logout-btn" onclick="foreverLogout()" style="background:#8b0000;margin-top:6px">Forever Logout</button>
 </div>
 
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal()"></div>
@@ -773,6 +774,26 @@ async function submitReauth() {
     showToast("Credentials saved — bridge will reconnect");
   } catch(e) { showToast("Network error", true); }
 }
+async function foreverLogout() {
+  closeLogout();
+  showToast("Logging out both accounts...");
+  try {
+    const r = await fetch("/api/logout", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({accounts: ["blink", "bhyve"]})
+    });
+    const data = await r.json();
+    if (!data.ok) { showToast("Logout failed: " + (data.error || "unknown"), true); return; }
+    await fetch("/api/logout/clear", {method: "POST"});
+    showToast("Logged out of both accounts");
+    if (confirm("Bridge logged out. Shut down the server on Render?")) {
+      await fetch("/api/shutdown", {method: "POST"});
+    } else {
+      location.href = "/setup";
+    }
+  } catch(e) { showToast("Network error logging out", true); }
+}
 async function saveCamera(oldName) {
   const name = document.getElementById("modalName").value.trim();
   const zone = parseInt(document.getElementById("modalZone").value) || 1;
@@ -813,7 +834,7 @@ async function deleteCamera(name) {
 
 
 async def handle_index(request):
-    if os.environ.get("SETUP_MODE") == "1":
+    if request.query.get("setup") == "1" or os.environ.get("SETUP_MODE") == "1":
         has_render_key = bool(os.environ.get("RENDER_API_KEY"))
         page = SETUP_PAGE.replace(
             'id="renderCard"',
@@ -821,6 +842,15 @@ async def handle_index(request):
         )
         return web.Response(text=page, content_type="text/html")
     return web.Response(text=PAGE, content_type="text/html")
+
+
+async def handle_setup_page(request):
+    has_render_key = bool(os.environ.get("RENDER_API_KEY"))
+    page = SETUP_PAGE.replace(
+        'id="renderCard"',
+        f'id="renderCard" style="display:{ "none" if has_render_key else "block" }"'
+    )
+    return web.Response(text=page, content_type="text/html")
 
 
 async def handle_errors(request):
@@ -1385,6 +1415,23 @@ async def handle_logout(request):
     return web.json_response({"ok": True})
 
 
+async def handle_logout_clear(request):
+    import yaml
+    config_path = os.path.join(os.path.dirname(__file__), "config.yml")
+    try:
+        with open(config_path) as f:
+            cfg = yaml.safe_load(f) or {}
+        for key in ["blink_email", "blink_password", "bhyve_email", "bhyve_password", "device_id", "blink_auth"]:
+            cfg.pop(key, None)
+        with open(config_path, "w") as f:
+            yaml.dump(cfg, f)
+    except Exception:
+        pass
+    for key in ["BLINK_EMAIL", "BLINK_PASSWORD", "BHYVE_EMAIL", "BHYVE_PASSWORD", "DEVICE_ID", "BLINK_AUTH"]:
+        os.environ.pop(key, None)
+    return web.json_response({"ok": True, "message": "Credentials cleared. Restart to enter setup mode."})
+
+
 async def handle_reauth(request):
     import yaml
     try:
@@ -1470,7 +1517,9 @@ def create_app():
     app.router.add_delete("/api/camera/{name}", handle_camera_delete)
     app.router.add_post("/api/camera/{name}/arm", handle_camera_arm)
     app.router.add_post("/api/camera/{name}/zone", handle_camera_zone)
+    app.router.add_get("/setup", handle_setup_page)
     app.router.add_post("/api/logout", handle_logout)
+    app.router.add_post("/api/logout/clear", handle_logout_clear)
     app.router.add_post("/api/reauth", handle_reauth)
     return app
 
