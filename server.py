@@ -1495,8 +1495,17 @@ async def handle_reauth(request):
     return web.json_response({"ok": True, "message": f"{account} credentials saved. Bridge will reconnect on next retry."})
 
 
+@web.middleware
+async def no_cache_middleware(request, handler):
+    response = await handler(request)
+    if isinstance(response, web.Response):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 def create_app():
-    app = web.Application()
+    app = web.Application(middlewares=[no_cache_middleware])
     app.router.add_get("/", handle_index)
     app.router.add_get("/api/errors", handle_errors)
     app.router.add_post("/api/clear", handle_clear)

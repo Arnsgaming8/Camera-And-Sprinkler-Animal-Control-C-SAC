@@ -19,3 +19,4 @@ duration_seconds: 3
 poll_interval_seconds: 30
 render_api_key: ''
 zone_number: 6
+
