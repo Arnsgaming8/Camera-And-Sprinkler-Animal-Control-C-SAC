@@ -381,6 +381,7 @@ PAGE = r"""<!DOCTYPE html>
   <span class="badge" id="zoneBadge" style="display:none"></span>
   <button class="danger" onclick="clearErrors()">Clear All</button>
   <button onclick="generatePass()" style="background:#1f6feb;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:600">Generate Pass</button>
+  <button onclick="location.href='/setup'" style="background:#6e7681;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:600">Setup</button>
 </div>
 <div class="water-form">
   <label>Zone</label>
@@ -881,6 +882,14 @@ async function deleteCamera(name) {
 
 async def handle_index(request):
     if request.query.get("setup") == "1" or os.environ.get("SETUP_MODE") == "1":
+        has_render_key = bool(os.environ.get("RENDER_API_KEY"))
+        page = SETUP_PAGE.replace(
+            'id="renderCard"',
+            f'id="renderCard" style="display:{ "none" if has_render_key else "block" }"'
+        )
+        return web.Response(text=page, content_type="text/html")
+    blink = state.active_blink
+    if not (blink and blink.cameras):
         has_render_key = bool(os.environ.get("RENDER_API_KEY"))
         page = SETUP_PAGE.replace(
             'id="renderCard"',
