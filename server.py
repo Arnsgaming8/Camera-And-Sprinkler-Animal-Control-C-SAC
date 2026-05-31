@@ -635,7 +635,9 @@ async function loadCameras() {
     const el = document.getElementById("camList");
     el.innerHTML = (!data.connected
       ? '<div style="color:#8b949e;font-size:0.85rem;padding:8px 0">Blink not connected</div>'
-      : ""
+      : data.cameras.length === 0
+        ? '<div style="color:#8b949e;font-size:0.85rem;padding:8px 0">No cameras configured</div>'
+        : ""
     ) + data.cameras.map(c => {
       const armed = c.name in armPending ? armPending[c.name] : c.armed;
       return `<div class="cam-item">
