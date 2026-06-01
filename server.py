@@ -125,7 +125,7 @@ async function saveSetup() {
     if (data.ok) {
       status.textContent = data.message || "Saved! Restarting service...";
       status.className = "status";
-      setTimeout(() => fetch("/api/restart", {method: "POST"}), 2000);
+      setTimeout(() => { fetch("/api/restart", {method: "POST"}); location.href = "/"; }, 2000);
     } else {
       status.textContent = "Error: " + (data.error || "unknown");
       status.className = "status err";
@@ -913,30 +913,15 @@ async function deleteCamera(name) {
 
 async def handle_index(request):
     if request.query.get("setup") == "1" or os.environ.get("SETUP_MODE") == "1":
-        has_render_key = bool(os.environ.get("RENDER_API_KEY"))
-        page = SETUP_PAGE.replace(
-            'id="renderCard"',
-            f'id="renderCard" style="display:{ "none" if has_render_key else "block" }"'
-        )
-        return web.Response(text=page, content_type="text/html")
+        return web.Response(text=SETUP_PAGE, content_type="text/html")
     blink = state.active_blink
     if not (blink and blink.cameras):
-        has_render_key = bool(os.environ.get("RENDER_API_KEY"))
-        page = SETUP_PAGE.replace(
-            'id="renderCard"',
-            f'id="renderCard" style="display:{ "none" if has_render_key else "block" }"'
-        )
-        return web.Response(text=page, content_type="text/html")
+        return web.Response(text=SETUP_PAGE, content_type="text/html")
     return web.Response(text=PAGE, content_type="text/html")
 
 
 async def handle_setup_page(request):
-    has_render_key = bool(os.environ.get("RENDER_API_KEY"))
-    page = SETUP_PAGE.replace(
-        'id="renderCard"',
-        f'id="renderCard" style="display:{ "none" if has_render_key else "block" }"'
-    )
-    return web.Response(text=page, content_type="text/html")
+    return web.Response(text=SETUP_PAGE, content_type="text/html")
 
 
 async def handle_errors(request):
@@ -1214,6 +1199,7 @@ async def handle_setup(request):
                     ("BHYVE_EMAIL", bhyve_email),
                     ("BHYVE_PASSWORD", bhyve_password),
                     ("DEVICE_ID", device_id),
+                    ("RENDER_API_KEY", render_api_key),
                 ]:
                     if val:
                         updates[env_key] = val
