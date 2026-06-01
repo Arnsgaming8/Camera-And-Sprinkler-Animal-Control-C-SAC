@@ -89,7 +89,7 @@ SETUP_PAGE = r"""<!DOCTYPE html>
     <input type="password" id="renderApiKey" placeholder="rnd_...">
     <button class="pw-toggle" onclick="togglePw('renderApiKey',this)" type="button">Show</button>
   </div>
-  <div class="hint">Required to save credentials as environment variables. Get it from Render dashboard &rarr; Account &rarr; API Keys.</div>
+  <div class="hint">Required to save credentials as environment variables. <a href="https://dashboard.render.com/u/api-keys" target="_blank" rel="noopener" style="color:#58a6ff">Get your API key</a> &rarr; Account &rarr; API Keys.</div>
 </div>
 
 <button class="primary" onclick="saveSetup()">Save &amp; Restart</button>
