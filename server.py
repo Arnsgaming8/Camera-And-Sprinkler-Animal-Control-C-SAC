@@ -125,7 +125,7 @@ async function saveSetup() {
     if (data.ok) {
       status.textContent = data.message || "Saved! Restarting service...";
       status.className = "status";
-      setTimeout(() => fetch("/api/shutdown", {method: "POST"}), 2000);
+      setTimeout(() => fetch("/api/restart", {method: "POST"}), 2000);
     } else {
       status.textContent = "Error: " + (data.error || "unknown");
       status.className = "status err";
@@ -1254,6 +1254,40 @@ async def handle_redeploy(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
 
+async def handle_restart(request):
+    global _manual_water_task, _water_pending
+    if _manual_water_task and not _manual_water_task.done():
+        _manual_water_task.cancel()
+    from bridge import CONFIG, BHyveClient
+    async with aiohttp.ClientSession() as session:
+        try:
+            bhyve = BHyveClient(session)
+            bhyve.device_id = CONFIG["device_id"]
+            await bhyve.login()
+            await bhyve.stop_zone()
+        except Exception:
+            pass
+    _manual_water_task = None
+    _water_pending = False
+    service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")
+    api_key = os.environ.get("RENDER_API_KEY")
+    if service_id and api_key:
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.post(
+                    f"https://api.render.com/v1/services/{service_id}/deploys",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json={"clearCache": "do_not_clear"},
+                ) as resp:
+                    if resp.status == 201:
+                        return web.json_response({"ok": True, "message": "Restarting service on Render..."})
+        except Exception:
+            pass
+    print("Restart: exiting process — Render will auto-restart")
+    await asyncio.sleep(2)
+    os._exit(0)
+
+
 async def handle_shutdown(request):
     asyncio.ensure_future(_suspend_service())
     return web.json_response({"ok": True, "message": "Suspending service on Render..."})
@@ -1630,6 +1664,7 @@ def create_app():
     app.router.add_post("/api/water/start", handle_water_start)
     app.router.add_post("/api/water/stop", handle_water_stop)
     app.router.add_post("/api/setup", handle_setup)
+    app.router.add_post("/api/restart", handle_restart)
     app.router.add_post("/api/shutdown", handle_shutdown)
     app.router.add_post("/api/redeploy", handle_redeploy)
     app.router.add_post("/api/esp32/trigger", handle_esp32_trigger)
