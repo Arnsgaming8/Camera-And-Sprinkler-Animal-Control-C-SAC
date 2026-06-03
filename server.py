@@ -1184,7 +1184,7 @@ async def handle_setup(request):
         cfg["disable_blink_polling"] = True
 
     if not cfg.get("cameras"):
-        cfg["cameras"] = [{"name": "Camera 1", "zone": 1, "duration_seconds": 60, "arm": True, "no_water": False}]
+        cfg["cameras"] = [{"name": "Camera 1", "zone": 1, "duration_seconds": 60, "arm": False, "no_water": False}]
 
     try:
         with open(config_path, "w") as f:
@@ -1511,7 +1511,7 @@ async def handle_camera_create(request):
     if any(c["name"] == name for c in CAMERAS):
         return web.json_response({"ok": False, "error": f"Camera '{name}' already exists"}, status=409)
 
-    new_cam = {"name": name, "zone": zone, "duration_seconds": duration, "arm": True, "no_water": no_water}
+    new_cam = {"name": name, "zone": zone, "duration_seconds": duration, "arm": False, "no_water": no_water}
     CAMERAS.append(new_cam)
     await _sync_cameras_config("camera_create")
     return web.json_response({"ok": True, "camera": new_cam})
