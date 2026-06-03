@@ -248,9 +248,10 @@ PAGE = r"""<!DOCTYPE html>
              transition: left 0.25s; padding: 20px; overflow-y: auto;
              display: flex; flex-direction: column; }
   .sidebar.open { left: 0; }
-  .sidebar h2 { font-size: 1.1rem; margin-bottom: 16px; color: #c9d1d9; }
-  .sidebar .close { float: right; background: none; border: none; color: #8b949e;
-                    font-size: 1.4rem; cursor: pointer; padding: 0 4px; }
+  .sidebar-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .sidebar h2 { font-size: 1.1rem; margin: 0; color: #c9d1d9; }
+  .sidebar .close { background: none; border: none; color: #8b949e;
+                    font-size: 1.4rem; cursor: pointer; padding: 0 4px; line-height: 1; }
   .sidebar .close:hover { color: #f85149; }
   .sidebar .cam-item { display: flex; align-items: center; gap: 10px;
                        padding: 10px 0; border-bottom: 1px solid #21262d; }
@@ -301,8 +302,10 @@ PAGE = r"""<!DOCTYPE html>
 
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <div class="sidebar" id="sidebar">
-  <button class="close" onclick="toggleSidebar()">&times;</button>
-  <h2>Cameras</h2>
+  <div class="sidebar-head">
+    <h2>Cameras</h2>
+    <button class="close" onclick="toggleSidebar()">&times;</button>
+  </div>
   <div id="camList"></div>
   <button class="logout-btn" onclick="openLogout()">Log Out</button>
 </div>
