@@ -296,6 +296,12 @@ PAGE = r"""<!DOCTYPE html>
   .switch input:checked + .slider::before { transform: translateX(18px); background: #fff; }
   .switch input:disabled + .slider { cursor: not-allowed; }
   .switch input:disabled + .slider::before { opacity: 0.5; }
+  #camList.loading .switch { pointer-events: none; }
+  #camList.loading .switch .slider { opacity: 0.6; }
+  #camList.loading .switch .slider::after { content: ""; position: absolute; top: 50%; left: 50%;
+    width: 10px; height: 10px; margin: -5px 0 0 -5px; border: 2px solid transparent;
+    border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.6s linear infinite; z-index: 1; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -669,6 +675,8 @@ function toggleSidebar() {
 const armPending = {};
 function _nocache() { return "?t=" + Date.now(); }
 async function loadCameras() {
+  const el = document.getElementById("camList");
+  el.classList.add("loading");
   try {
     const r = await fetch("/api/cameras" + _nocache());
     const data = await r.json();
@@ -692,6 +700,7 @@ async function loadCameras() {
     </div>`;
     }).join("") + '<button class="add-btn primary" onclick="openAddModal()">+ Add Camera</button>';
   } catch(e) { /* ignore */ }
+  el.classList.remove("loading");
 }
 async function armCamera(name, armed, checkbox) {
   checkbox.disabled = true;
@@ -1434,11 +1443,15 @@ async def handle_cameras(request):
     result = []
     for cam in CAMERAS:
         name = cam["name"]
+        armed = cam.get("arm", True)
+        if connected and blink.cameras.get(name) is not None:
+            blink_cam = blink.cameras[name]
+            armed = bool(getattr(blink_cam, "arm", True))
         result.append({
             "name": name,
             "zone": cam["zone"],
             "duration": cam.get("duration_seconds", 3),
-            "armed": cam.get("arm", True),
+            "armed": armed,
             "no_water": cam.get("no_water", False),
         })
     return web.json_response({"connected": connected, "cameras": result})
