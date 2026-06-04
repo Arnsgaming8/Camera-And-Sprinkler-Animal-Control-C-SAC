@@ -392,6 +392,12 @@ class BlinkWatcher:
                 continue
 
             armed = bool(getattr(camera, "arm", True))
+            if cam.get("arm") != armed:
+                old = cam.get("arm")
+                cam["arm"] = armed
+                action = "armed" if armed else "disarmed"
+                print(f"  Camera '{name}' {action} by Blink")
+                errors.log_error("check_motion", f"Camera '{name}' {action} by Blink")
             print(f"  Camera '{name}': armed={armed}, last_record={'set' if camera.last_record else None}, motion={camera.motion_detected}")
 
             if not armed:

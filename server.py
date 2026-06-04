@@ -1434,15 +1434,11 @@ async def handle_cameras(request):
     result = []
     for cam in CAMERAS:
         name = cam["name"]
-        armed = cam.get("arm", True)
-        if connected and blink.cameras.get(name) is not None:
-            blink_cam = blink.cameras[name]
-            armed = bool(getattr(blink_cam, "arm", True))
         result.append({
             "name": name,
             "zone": cam["zone"],
             "duration": cam.get("duration_seconds", 3),
-            "armed": armed,
+            "armed": cam.get("arm", True),
             "no_water": cam.get("no_water", False),
         })
     return web.json_response({"connected": connected, "cameras": result})
