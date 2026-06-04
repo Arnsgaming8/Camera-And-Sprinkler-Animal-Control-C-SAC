@@ -161,7 +161,8 @@ PAGE = r"""<!DOCTYPE html>
   #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
            background: #238636; color: #fff; padding: 10px 24px; border-radius: 8px;
            font-size: 0.9rem; z-index: 9999; opacity: 0; transition: opacity 0.3s;
-           pointer-events: none; white-space: nowrap; }
+           pointer-events: none; white-space: nowrap; max-width: calc(100vw - 32px);
+           overflow: hidden; text-overflow: ellipsis; }
   #toast.error { background: #da3633; }
   button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
            padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
