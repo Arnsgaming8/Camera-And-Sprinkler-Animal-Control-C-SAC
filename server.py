@@ -299,8 +299,8 @@ PAGE = r"""<!DOCTYPE html>
   .switch input:disabled + .slider::before { opacity: 0.5; }
   #camList.loading .switch { pointer-events: none; }
   #camList.loading .switch .slider { opacity: 0.6; }
-  #camList.loading .switch .slider::after { content: ""; position: absolute; top: 50%; left: 50%;
-    width: 10px; height: 10px; margin: -5px 0 0 -5px; border: 2px solid transparent;
+  #camList.loading .switch .slider::after { content: ""; position: absolute; top: 50%; left: -18px;
+    width: 10px; height: 10px; margin: -5px 0 0; border: 2px solid transparent;
     border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.6s linear infinite; z-index: 1; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
