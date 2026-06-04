@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import time
 from datetime import datetime, timezone
 
 import aiohttp
@@ -1446,7 +1447,12 @@ async def handle_cameras(request):
         armed = cam.get("arm", True)
         if connected and blink.cameras.get(name) is not None:
             blink_cam = blink.cameras[name]
-            armed = bool(getattr(blink_cam, "arm", True))
+            live = bool(getattr(blink_cam, "arm", True))
+            last_user = state.last_user_arm.get(name, 0)
+            if time.time() - last_user > 60:
+                armed = live
+            else:
+                armed = cam.get("arm", True)
         result.append({
             "name": name,
             "zone": cam["zone"],
@@ -1479,6 +1485,7 @@ async def handle_camera_arm(request):
         if cam["name"] == name:
             cam["arm"] = armed
             break
+    state.last_user_arm[name] = time.time()
     asyncio.ensure_future(_sync_cameras_config("camera_arm"))
     errors.log_error("arming", f"{'Enabled' if armed else 'Disabled'} motion on '{name}'")
     return web.json_response({"ok": True, "name": name, "armed": armed})

@@ -4,3 +4,4 @@ twofa_pin = None
 twofa_pending = False
 reauth_in_progress = False
 last_poll = None
+last_user_arm = {}
