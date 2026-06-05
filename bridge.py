@@ -391,17 +391,18 @@ class BlinkWatcher:
                 print(f"  ERROR: Accessing camera '{name}' failed: {e}")
                 continue
 
-            armed = bool(getattr(camera, "arm", True))
-            if cam.get("arm") != armed:
+            blink_armed = bool(getattr(camera, "arm", True))
+            if cam.get("arm") != blink_armed:
                 last_user = state.last_user_arm.get(name, 0)
                 if time.time() - last_user <= 60:
                     pass
                 else:
-                    cam["arm"] = armed
-                    action = "armed" if armed else "disarmed"
+                    cam["arm"] = blink_armed
+                    action = "armed" if blink_armed else "disarmed"
                     print(f"  Camera '{name}' {action} by Blink")
                     errors.log_error("check_motion", f"Camera '{name}' {action} by Blink")
-            print(f"  Camera '{name}': armed={armed}, last_record={'set' if camera.last_record else None}, motion={camera.motion_detected}")
+            armed = cam.get("arm", True)
+            print(f"  Camera '{name}': armed={armed}, camera.arm={blink_armed}, last_record={'set' if camera.last_record else None}, motion={camera.motion_detected}")
 
             if not armed:
                 print(f"  Skipping '{name}' — camera is disarmed")
