@@ -1450,14 +1450,6 @@ async def handle_cameras(request):
     for cam in CAMERAS:
         name = cam["name"]
         armed = cam.get("arm", True)
-        if connected and blink.cameras.get(name) is not None:
-            blink_cam = blink.cameras[name]
-            live = bool(getattr(blink_cam, "arm", True))
-            last_user = state.last_user_arm.get(name, 0)
-            if time.time() - last_user > 60:
-                armed = live
-            else:
-                armed = cam.get("arm", True)
         result.append({
             "name": name,
             "zone": cam["zone"],

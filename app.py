@@ -59,11 +59,15 @@ def generate_config():
             env_cameras = json.loads(cameras_json)
             existing = {c["name"]: c for c in config.get("cameras", [])}
             merged = []
+            env_names = {c["name"] for c in env_cameras}
             for c in env_cameras:
                 if c["name"] in existing:
                     existing[c["name"]].update(c)
                     merged.append(existing[c["name"]])
                 else:
+                    merged.append(c)
+            for c in config.get("cameras", []):
+                if c["name"] not in env_names:
                     merged.append(c)
             config["cameras"] = merged
         except json.JSONDecodeError as e:

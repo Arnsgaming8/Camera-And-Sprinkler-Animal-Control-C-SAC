@@ -393,19 +393,8 @@ class BlinkWatcher:
 
             blink_armed = bool(getattr(camera, "arm", True))
             if cam.get("arm") != blink_armed:
-                last_user = state.last_user_arm.get(name, 0)
-                if time.time() - last_user <= 60:
-                    pass
-                elif blink_armed:
-                    if not cam.get("arm"):
-                        self.last_records[name] = None
-                    cam["arm"] = True
-                    print(f"  Camera '{name}' armed by Blink")
-                    errors.log_error("check_motion", f"Camera '{name}' armed by Blink")
-                else:
-                    cam["arm"] = False
-                    print(f"  Camera '{name}' disarmed by Blink")
-                    errors.log_error("check_motion", f"Camera '{name}' disarmed by Blink")
+                if not cam.get("arm") and blink_armed:
+                    self.last_records[name] = None
             armed = cam.get("arm", True)
             print(f"  Camera '{name}': armed={armed}, camera.arm={blink_armed}, last_record={'set' if camera.last_record else None}, motion={camera.motion_detected}")
 
