@@ -120,6 +120,14 @@ async def cleanup_bridge(app):
             pass
 
 
+async def _start_boot_pinger(app):
+    url = os.environ.get("RENDER_EXTERNAL_URL")
+    if not url:
+        return
+    from server import _maybe_start_pinger
+    await _maybe_start_pinger(app, url)
+
+
 async def _cleanup_ping(app):
     task = app.get("ping_task")
     if isinstance(task, asyncio.Task):
@@ -140,6 +148,7 @@ def main():
 
     app = create_app()
     app.on_startup.append(bridge_background_task)
+    app.on_startup.append(_start_boot_pinger)
     app.on_cleanup.append(cleanup_bridge)
     app.on_cleanup.append(_cleanup_ping)
     app.on_cleanup.append(_cleanup_ping)
