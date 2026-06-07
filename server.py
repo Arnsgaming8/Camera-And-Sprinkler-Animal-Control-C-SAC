@@ -517,10 +517,11 @@ function formatTime(iso) {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d)) return iso;
-  let h = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
+  const mo = d.getMonth()+1, da = d.getDate(), y = d.getFullYear();
+  let h = d.getHours(), m = d.getMinutes();
   const ampm = h >= 12 ? "PM" : "AM";
   h = h % 12 || 12;
-  return h + ":" + String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0") + " " + ampm;
+  return mo + "/" + da + "/" + y + "-" + h + ":" + String(m).padStart(2,"0") + "-" + ampm;
 }
 function copyError(btn, encoded) {
   const data = JSON.parse(decodeURIComponent(encoded));
@@ -1427,7 +1428,7 @@ async def handle_esp32_trigger(request):
         duration = int(body.get("duration", 10))
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=400)
-    ts = datetime.now(timezone.utc).strftime("%I:%M:%S %p")
+    ts = datetime.now(timezone.utc).strftime("%m/%d/%Y-%I:%M-%p")
     from bridge import CAMERAS
     no_water_zone = any(c.get("no_water", False) for c in CAMERAS if c.get("zone") == zone)
     if no_water_zone:

@@ -433,7 +433,7 @@ class BlinkWatcher:
 
             if trigger:
                 self.last_watered[zone] = time.time()
-                ts = datetime.now().strftime("%I:%M:%S %p")
+                ts = datetime.now().strftime("%m/%d/%Y-%I:%M-%p")
                 msg = f"[{ts}] {reason} on '{name}' → zone {zone} ({secs}s)"
                 print(msg)
                 errors.log_error("motion", msg)
