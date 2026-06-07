@@ -12,6 +12,43 @@ import state
 HOST = os.environ.get("ERROR_HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT") or os.environ.get("ERROR_PORT") or "5000")
 
+_PING_STARTED = object()
+
+
+async def _maybe_start_pinger(app, url):
+    if app.get("ping_task") is _PING_STARTED:
+        return
+    app["ping_task"] = _PING_STARTED
+
+    async def _ping():
+        while True:
+            await asyncio.sleep(1)
+            try:
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as s:
+                    async with s.get(url):
+                        pass
+            except Exception:
+                pass
+
+    print(f"Self-pinging {url} every 1s to keep Render free tier alive")
+    app["ping_task"] = asyncio.create_task(_ping())
+
+
+@web.middleware
+async def _ping_middleware(request, handler):
+    response = await handler(request)
+    app = request.app
+    if "ping_task" not in app:
+        host = request.host
+        if ":" in host:
+            host = host.split(":")[0]
+        public_url = os.environ.get("RENDER_EXTERNAL_URL")
+        if public_url:
+            host = public_url
+        url = f"{request.scheme}://{host}"
+        asyncio.ensure_future(_maybe_start_pinger(app, url))
+    return response
+
 
 SETUP_PAGE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -1701,7 +1738,7 @@ async def no_cache_middleware(request, handler):
     return response
 
 def create_app():
-    app = web.Application(middlewares=[no_cache_middleware])
+    app = web.Application(middlewares=[no_cache_middleware, _ping_middleware])
     app.router.add_get("/", handle_index)
     app.router.add_get("/api/errors", handle_errors)
     app.router.add_post("/api/clear", handle_clear)

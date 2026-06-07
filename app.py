@@ -142,7 +142,7 @@ async def _start_self_ping(app):
 
 async def _cleanup_ping(app):
     task = app.get("ping_task")
-    if task:
+    if isinstance(task, asyncio.Task):
         task.cancel()
         try:
             await task
