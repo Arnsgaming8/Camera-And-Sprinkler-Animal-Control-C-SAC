@@ -500,7 +500,7 @@ async function refresh() {
     return `<div class="${cls}">
       <div class="head">
         <span class="source">${esc(e.source)}</span>
-        <span class="time">${esc(e.timestamp)}</span>
+        <span class="time">${formatTime(e.timestamp)}</span>
       </div>
       <div class="msg">${esc(e.message)}</div>
       <div class="actions">
@@ -513,9 +513,18 @@ async function refresh() {
   }).join("");
 }
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function formatTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  let h = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return h + ":" + String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0") + " " + ampm;
+}
 function copyError(btn, encoded) {
   const data = JSON.parse(decodeURIComponent(encoded));
-  const text = [data.timestamp, data.source, data.message, data.traceback || ""].filter(Boolean).join("\n\n");
+  const text = [formatTime(data.timestamp), data.source, data.message, data.traceback || ""].filter(Boolean).join("\n\n");
   navigator.clipboard.writeText(text).then(() => {
     btn.textContent = "Copied!";
     btn.classList.add("copied");
@@ -1418,7 +1427,7 @@ async def handle_esp32_trigger(request):
         duration = int(body.get("duration", 10))
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=400)
-    ts = datetime.now(timezone.utc).time().isoformat(timespec="seconds")
+    ts = datetime.now(timezone.utc).strftime("%I:%M:%S %p")
     from bridge import CAMERAS
     no_water_zone = any(c.get("no_water", False) for c in CAMERAS if c.get("zone") == zone)
     if no_water_zone:
