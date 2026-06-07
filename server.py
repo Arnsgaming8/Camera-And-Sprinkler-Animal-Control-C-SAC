@@ -505,7 +505,7 @@ async function refresh() {
       <div class="msg">${esc(e.message)}</div>
       <div class="actions">
         <button class="copy-btn" onclick="copyError(this, '${enc(e)}')">Copy</button>
-        <button class="del-btn" onclick="deleteError(${e.id})" title="Delete entry"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M3 4h10l-3.5 9h-3Z"/><path d="M7 1h2v3H7Z"/><path d="M2 3h12v1H2Z"/></svg></button>
+        <button class="del-btn" onclick="deleteError(${e.id})" title="Delete entry"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M3 4h10v10H3Z"/><path d="M2 3h12v1H2Z"/><path d="M7 1h2v2H7Z"/></svg></button>
         ${hasTrace ? `<span class="trace-toggle" onclick="this.parentElement.nextElementSibling.classList.toggle('show')">Show traceback</span>` : ""}
       </div>
       ${hasTrace ? `<div class="trace">${esc(e.traceback)}<br><button class="copy-btn" style="margin-top:6px" onclick="copyError(this, '${enc({traceback: e.traceback})}')">Copy traceback</button></div>` : ""}
