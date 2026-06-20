@@ -1229,7 +1229,7 @@ async def handle_setup(request):
     except Exception:
         return web.json_response({"ok": False, "error": "bad request"}, status=400)
 
-    config_path = os.path.join(os.path.dirname(__file__), "config.yml")
+    config_path = state.get_config_path()
     if os.path.exists(config_path):
         with open(config_path) as f:
             cfg = yaml.safe_load(f) or {}
@@ -1451,7 +1451,7 @@ async def _sync_cameras_config(event_label):
     import yaml
     from bridge import CAMERAS
 
-    config_path = os.path.join(os.path.dirname(__file__), "config.yml")
+    config_path = state.get_config_path()
     try:
         with open(config_path) as f:
             cfg = yaml.safe_load(f) or {}
@@ -1629,7 +1629,7 @@ async def handle_logout(request):
     except Exception:
         return web.json_response({"ok": False, "error": "bad request"}, status=400)
 
-    config_path = os.path.join(os.path.dirname(__file__), "config.yml")
+    config_path = state.get_config_path()
 
     if "blink" in accounts:
         state.active_blink = None
@@ -1660,7 +1660,7 @@ async def handle_logout(request):
 
 async def handle_logout_clear(request):
     import yaml
-    config_path = os.path.join(os.path.dirname(__file__), "config.yml")
+    config_path = state.get_config_path()
     try:
         with open(config_path) as f:
             cfg = yaml.safe_load(f) or {}
@@ -1687,7 +1687,7 @@ async def handle_reauth(request):
     if not email or not password:
         return web.json_response({"ok": False, "error": "email and password required"}, status=400)
 
-    config_path = os.path.join(os.path.dirname(__file__), "config.yml")
+    config_path = state.get_config_path()
     try:
         with open(config_path) as f:
             cfg = yaml.safe_load(f) or {}

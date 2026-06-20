@@ -3,7 +3,8 @@ import os
 
 import yaml
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yml")
+import state
+CONFIG_PATH = state.get_config_path()
 
 ENV_MAP = {
     "BLINK_EMAIL": "blink_email",
@@ -139,7 +140,7 @@ async def _cleanup_ping(app):
 
 
 def main():
-    print("=== Blink \u2192 B-hyve Bridge (Render) ===")
+    print("=== Blink -> B-hyve Bridge (Render) ===")
     generate_config()
     os.environ.setdefault("ERRORS_MEMORY", "1")
 

@@ -14,7 +14,7 @@ import state
 
 
 def load_config():
-    path = os.path.join(os.path.dirname(__file__), "config.yml")
+    path = state.get_config_path()
     example_path = os.path.join(os.path.dirname(__file__), "config.example.yml")
     try:
         if not os.path.exists(path):
@@ -50,7 +50,7 @@ except Exception as e:
 
 BHYVE_API = "https://api.orbitbhyve.com/v1"
 LAST_MOTION_FILE = os.path.join(os.path.dirname(__file__), ".last_motion")
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yml")
+CONFIG_PATH = state.get_config_path()
 
 
 def _save_blink_auth(auth):

@@ -2,8 +2,13 @@ import asyncio
 import aiohttp
 import yaml
 import os
+import sys
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yml")
+if getattr(sys, "frozen", False):
+    config_dir = os.path.join(os.path.expanduser("~"), ".babbs")
+else:
+    config_dir = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(config_dir, "config.yml")
 
 with open(CONFIG_PATH) as f:
     config = yaml.safe_load(f)
