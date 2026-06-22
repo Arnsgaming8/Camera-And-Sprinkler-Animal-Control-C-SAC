@@ -87,34 +87,6 @@ def _load_blink_auth():
         return {}
 
 
-async def _sync_blink_auth_to_render():
-    raw = os.environ.get("BLINK_AUTH")
-    if not raw:
-        return
-    api_key = os.environ.get("RENDER_API_KEY")
-    if not api_key:
-        print("  RENDER_API_KEY not set — blink auth won't survive deploy")
-        return
-    service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")
-    if not service_id:
-        print("  RENDER_SERVICE_ID not found — blink auth won't survive deploy")
-        return
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.put(
-                f"https://api.render.com/v1/services/{service_id}/env-vars/BLINK_AUTH",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json={"key": "BLINK_AUTH", "value": raw},
-            ) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    print(f"  Failed to sync blink auth to Render: {resp.status} {text[:200]}")
-                else:
-                    print("  Blink auth synced to Render env var")
-    except Exception as e:
-        print(f"  Failed to sync blink auth to Render: {e}")
-
-
 POLL_INTERVAL = CONFIG.get("poll_interval_seconds", 30)
 if not isinstance(POLL_INTERVAL, (int, float)) or POLL_INTERVAL < 1:
     print("Invalid poll_interval_seconds, defaulting to 30")
@@ -143,25 +115,6 @@ elif raw_cameras is None:
     }]
 else:
     CAMERAS = []
-
-
-def load_last_motion():
-    try:
-        with open(LAST_MOTION_FILE) as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        errors.log_error("load_last_motion", f"Cannot read motion file: {e}", exc_info=True)
-        return None
-
-
-def save_last_motion(ts):
-    try:
-        with open(LAST_MOTION_FILE, "w") as f:
-            f.write(ts)
-    except Exception as e:
-        errors.log_error("save_last_motion", f"Cannot write motion file: {e}", exc_info=True)
 
 
 BHYVE_WS = "wss://api.orbitbhyve.com/v1/events"
@@ -195,9 +148,7 @@ class BHyveClient:
                             continue
                         raise RuntimeError(f"B-hyve login failed ({r.status}): {text[:200]}")
                     if r.status >= 400:
-                        raise RuntimeError(
-                            f"B-hyve login failed ({r.status}): {text[:200]}"
-                        )
+                        raise RuntimeError(f"B-hyve login failed ({r.status}): {text[:200]}")
                     try:
                         data = _json.loads(text)
                     except Exception:
@@ -477,7 +428,6 @@ class BlinkWatcher:
 
 
 async def process_2fa_code(blink, pin):
-    """Submit a 2FA pin and complete authentication. Returns True on success."""
     from blinkpy import api as blink_api
     auth = blink.auth
     has_csrf = hasattr(auth, "_oauth_csrf_token")
@@ -544,7 +494,7 @@ async def main():
         async with aiohttp.ClientSession() as session:
             bhyve = BHyveClient(session)
 
-            blink = Blink()
+            blink = Blink(motion_interval=360)
             try:
                 auth_data = {
                     "username": CONFIG["blink_email"],
@@ -553,29 +503,35 @@ async def main():
                 auth_data.update(_load_blink_auth())
                 blink.auth = Auth(auth_data, session=session)
                 if not await blink.start():
-                    msg = "Blink login failed. Check credentials or rate-limited. Retrying..."
+                    msg = "Blink login failed. Check credentials or rate-limited."
                     print(f"  {msg}")
-                    errors.log_error("main.blink_setup", msg)
+                    errors.log_error("main.blink_setup", msg + " Retrying...")
+                    state.blink_instance = blink
                     retry = 60
+                    attempts = 0
                     while True:
                         await asyncio.sleep(retry)
-                        print(f"  Retrying Blink login in {retry}s...")
+                        attempts += 1
+                        print(f"  Retrying Blink login ({attempts}) in {retry}s...")
                         try:
                             if await blink.start():
                                 state.active_blink = blink
+                                state.blink_instance = None
                                 _save_blink_auth(blink.auth)
                                 print("  Blink login successful on retry")
-                                await _sync_blink_auth_to_render()
                                 break
                         except BlinkTwoFARequiredError:
+                            state.blink_instance = blink
                             raise
                         except Exception:
                             pass
+                        if attempts >= 5:
+                            print("  Too many retries. Waiting for user reauth via dashboard.")
+                            break
                         retry = min(retry * 2, 3600)
                 else:
                     state.active_blink = blink
                     _save_blink_auth(blink.auth)
-                    await _sync_blink_auth_to_render()
             except BlinkTwoFARequiredError:
                 msg = (
                     "Blink requires two-factor authentication. "
@@ -602,7 +558,6 @@ async def main():
                         state.blink_instance = None
                         state.active_blink = blink
                         _save_blink_auth(blink.auth)
-                        await _sync_blink_auth_to_render()
                         errors.log_error("main.blink_2fa", "2FA completed successfully")
                         print("  2FA completed successfully")
                         break

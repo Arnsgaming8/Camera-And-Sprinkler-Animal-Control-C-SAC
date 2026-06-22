@@ -1,19 +1,16 @@
 import os
-import sys
-
-
-def get_config_path():
-    if getattr(sys, "frozen", False):
-        d = os.path.join(os.path.expanduser("~"), ".babbs")
-    else:
-        d = os.path.dirname(os.path.abspath(__file__))
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, "config.yml")
 
 
 blink_instance = None
 active_blink = None
-twofa_pin = None
 twofa_pending = False
+twofa_pin = None
 reauth_in_progress = False
 last_poll = None
+
+
+def get_config_path():
+    override = os.environ.get("BABBS_CONFIG_DIR")
+    if override:
+        return os.path.join(override, "config.yml")
+    return os.path.join(os.path.dirname(__file__), "config.yml")

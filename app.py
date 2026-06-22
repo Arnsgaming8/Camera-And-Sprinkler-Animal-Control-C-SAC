@@ -121,26 +121,8 @@ async def cleanup_bridge(app):
             pass
 
 
-async def _start_boot_pinger(app):
-    url = os.environ.get("RENDER_EXTERNAL_URL")
-    if not url:
-        return
-    from server import _maybe_start_pinger
-    await _maybe_start_pinger(app, url)
-
-
-async def _cleanup_ping(app):
-    task = app.get("ping_task")
-    if isinstance(task, asyncio.Task):
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
-
-
 def main():
-    print("=== Blink -> B-hyve Bridge (Render) ===")
+    print("=== Blink -> B-hyve Bridge ===")
     generate_config()
     os.environ.setdefault("ERRORS_MEMORY", "1")
 
@@ -149,13 +131,19 @@ def main():
 
     app = create_app()
     app.on_startup.append(bridge_background_task)
-    app.on_startup.append(_start_boot_pinger)
     app.on_cleanup.append(cleanup_bridge)
-    app.on_cleanup.append(_cleanup_ping)
-    app.on_cleanup.append(_cleanup_ping)
 
-    print(f"Dashboard at http://0.0.0.0:{PORT}")
-    web.run_app(app, host=HOST, port=PORT)
+    ssl_ctx = None
+    cert_path = os.path.join(os.path.dirname(CONFIG_PATH), "cert.pem")
+    key_path = os.path.join(os.path.dirname(CONFIG_PATH), "key.pem")
+    if os.path.exists(cert_path) and os.path.exists(key_path):
+        import ssl
+        ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_ctx.load_cert_chain(cert_path, key_path)
+        print(f"Dashboard at https://0.0.0.0:{PORT}")
+    else:
+        print(f"Dashboard at http://0.0.0.0:{PORT}")
+    web.run_app(app, host=HOST, port=PORT, ssl_context=ssl_ctx)
 
 
 if __name__ == "__main__":

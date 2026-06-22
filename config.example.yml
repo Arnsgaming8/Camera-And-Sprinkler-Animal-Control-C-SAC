@@ -1,20 +1,14 @@
-blink_email: "your-blink-email@example.com"
-blink_password: "your-blink-password"
-camera_name: "Front Door"
-
-bhyve_email: "your-bhyve-email@example.com"
-bhyve_password: "your-bhyve-password"
-device_id: "find-this-by-running-python-list_devices.py"
-zone_number: 1
-duration_seconds: 20
-
+bhyve_email: your-email@example.com
+bhyve_password: your-bhyve-password
+blink_email: your-email@example.com
+blink_password: your-blink-password
+device_id: "607220244f0c161d5a0d1648"
+duration_seconds: 180
 poll_interval_seconds: 30
-render_api_key: "rnd_<your-render-api-key>"
-
 cameras:
-  - name: "Front Door"
-    zone: 1
-    duration_seconds: 20
   - name: "Back yard"
-    zone: 2
-    duration_seconds: 30
+    zone: 1
+    duration_seconds: 180
+    arm: true
+    no_water: false
+render_api_key: ""

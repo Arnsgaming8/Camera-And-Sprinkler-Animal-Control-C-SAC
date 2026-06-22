@@ -1,53 +1,44 @@
 import asyncio
 import aiohttp
 import yaml
-import os
 import sys
+import os
 
-if getattr(sys, "frozen", False):
-    config_dir = os.path.join(os.path.expanduser("~"), ".babbs")
-else:
-    config_dir = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(config_dir, "config.yml")
-
-with open(CONFIG_PATH) as f:
-    config = yaml.safe_load(f)
-
-BHYVE_API = "https://api.orbitbhyve.com/v1"
-
+sys.path.insert(0, os.path.dirname(__file__))
+import state
 
 async def main():
+    path = state.get_config_path()
+    if not os.path.exists(path):
+        email = input("B-hyve email: ").strip()
+        password = input("B-hyve password: ").strip()
+    else:
+        with open(path) as f:
+            cfg = yaml.safe_load(f) or {}
+        email = cfg.get("bhyve_email") or input("B-hyve email: ").strip()
+        password = cfg.get("bhyve_password") or input("B-hyve password: ").strip()
+
     async with aiohttp.ClientSession() as session:
-        payload = {
-            "session": {
-                "email": config["bhyve_email"],
-                "password": config["bhyve_password"],
-            }
-        }
-        async with session.post(f"{BHYVE_API}/session", json=payload) as r:
-            data = await r.json()
-            if r.status >= 400 or "orbit_session_token" not in data:
+        url = "https://api.orbitbhyve.com/v1/session"
+        payload = {"session": {"email": email, "password": password}}
+        async with session.post(url, json=payload) as r:
+            if r.status >= 400:
+                data = await r.json()
                 print(f"Login failed ({r.status}): {data}")
                 return
+            data = await r.json()
             token = data["orbit_session_token"]
 
-        headers = {"Orbit-Session-Token": token}
-        async with session.get(f"{BHYVE_API}/devices", headers=headers) as r:
+        headers = {"Authorization": f"Bearer {token}"}
+        async with session.get("https://api.orbitbhyve.com/v1/devices", headers=headers) as r:
             devices = await r.json()
-
-        for d in devices:
-            print(f"Device: {d.get('name', '(unnamed)')}")
-            print(f"  ID: {d['id']}")
-            print(f"  Type: {d.get('type', 'N/A')}")
-            zones = d.get("zones", [])
-            if zones:
-                print("  Zones:")
-                for i, z in enumerate(zones, 1):
-                    name = z.get("name", f"Zone {i}")
-                    enabled = "enabled" if z.get("enabled") else "disabled"
-                    print(f"    {i}: {name} ({enabled})")
-            print()
-
+            print("\nDevices:")
+            for d in devices:
+                print(f"  {d.get('description', '?')} (id={d.get('_id', '?')})")
+                zones = d.get("zones", [])
+                print(f"    Zones: {len(zones)}")
+                for z in zones:
+                    print(f"      {z.get('name', '?')} (station={z.get('station', '?')})")
 
 if __name__ == "__main__":
     asyncio.run(main())
