@@ -1048,9 +1048,7 @@ async def handle_2fa_resend(request):
 
     try:
         from blinkpy.blinkpy import Blink
-        from blinkpy import api
         from blinkpy.auth import Auth, BlinkTwoFARequiredError
-        from blinkpy.helpers.pkce import generate_pkce_pair
         from bridge import _load_blink_auth
 
         async with aiohttp.ClientSession() as session:
@@ -1068,27 +1066,16 @@ async def handle_2fa_resend(request):
                     state.active_blink = blink_obj
                     return web.json_response({"ok": True, "message": "Already logged in. No 2FA needed."})
             except BlinkTwoFARequiredError:
-                pass
+                state.blink_instance = blink_obj
+                state.twofa_pending = False
+                errors.log_error("main.blink_2fa", "New 2FA code sent to email")
+                return web.json_response({"ok": True, "message": "New code sent to your email"})
             except Exception as e:
                 errors.log_error("main.blink_2fa_resend", f"Login failed: {e}")
                 return web.json_response({"ok": False, "error": f"Blink login failed: {e}"}, status=500)
 
-            code_verifier, code_challenge = generate_pkce_pair()
-            blink_obj.auth._oauth_code_verifier = code_verifier
-            ok = await api.oauth_authorize_request(blink_obj.auth, blink_obj.auth.hardware_id, code_challenge)
-            if not ok:
-                return web.json_response({"ok": False, "error": "OAuth authorize request failed"}, status=500)
-            csrf = await api.oauth_get_signin_page(blink_obj.auth)
-            if not csrf:
-                return web.json_response({"ok": False, "error": "Failed to get CSRF token"}, status=500)
-            result = await api.oauth_signin(blink_obj.auth, blink_email, blink_password, csrf)
-            if result != "2FA_REQUIRED":
-                return web.json_response({"ok": False, "error": f"Signin returned: {result}"}, status=500)
-            blink_obj.auth._oauth_csrf_token = csrf
-            state.blink_instance = blink_obj
-            state.twofa_pending = False
-            errors.log_error("main.blink_2fa", "New 2FA code sent to email")
-            return web.json_response({"ok": True, "message": "New code sent to your email"})
+            errors.log_error("main.blink_2fa_resend", "Login succeeded unexpectedly (no 2FA)")
+            return web.json_response({"ok": False, "error": "Login succeeded (no 2FA needed)"}, status=400)
     except Exception as e:
         errors.log_error("main.blink_2fa_resend", str(e), exc_info=True)
         return web.json_response({"ok": False, "error": str(e)}, status=500)
