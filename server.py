@@ -945,10 +945,20 @@ async function deleteCamera(name) {
 async def handle_index(request):
     if request.query.get("setup") == "1" or os.environ.get("SETUP_MODE") == "1":
         return web.Response(text=SETUP_PAGE, content_type="text/html")
-    blink = state.active_blink
-    if not (blink and blink.cameras):
-        return web.Response(text=SETUP_PAGE, content_type="text/html")
-    return web.Response(text=PAGE, content_type="text/html")
+
+    if _has_credentials():
+        return web.Response(text=PAGE, content_type="text/html")
+    return web.Response(text=SETUP_PAGE, content_type="text/html")
+
+
+def _has_credentials():
+    import yaml
+    config_path = os.path.join(os.path.dirname(__file__), "config.yml")
+    try:
+        cfg = yaml.safe_load(open(config_path)) or {}
+        return bool(cfg.get("bhyve_email") and cfg.get("bhyve_password") and cfg.get("device_id"))
+    except Exception:
+        return False
 
 
 async def handle_setup_page(request):
@@ -1223,6 +1233,7 @@ async def handle_setup(request):
             yaml.dump(cfg, f, default_flow_style=False)
     except Exception as e:
         return web.json_response({"ok": False, "error": f"Failed to write config: {e}"}, status=500)
+    os.environ.pop("SETUP_MODE", None)
 
     has_render_key = bool(os.environ.get("RENDER_API_KEY") or render_api_key)
     service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")
