@@ -502,68 +502,74 @@ async def main():
                 }
                 auth_data.update(_load_blink_auth())
                 blink.auth = Auth(auth_data, session=session)
-                if not await blink.start():
-                    msg = "Blink login failed. Check credentials or rate-limited."
-                    print(f"  {msg}")
-                    errors.log_error("main.blink_setup", msg + " Retrying...")
-                    retry = 60
-                    attempts = 0
-                    while True:
-                        await asyncio.sleep(retry)
-                        attempts += 1
-                        print(f"  Retrying Blink login ({attempts}) in {retry}s...")
-                        try:
-                            if await blink.start():
-                                state.active_blink = blink
-                                state.blink_instance = None
-                                _save_blink_auth(blink.auth)
-                                print("  Blink login successful on retry")
-                                break
-                        except BlinkTwoFARequiredError:
-                            state.blink_instance = blink
-                            raise
-                        except Exception:
-                            pass
-                        if attempts >= 5:
-                            print("  Too many retries. Waiting for user reauth via dashboard.")
-                            break
-                        retry = min(retry * 2, 3600)
-                else:
+                try:
+                    login_ok = await blink.start()
+                except BlinkTwoFARequiredError:
+                    login_ok = None
+                if login_ok:
                     state.active_blink = blink
                     _save_blink_auth(blink.auth)
-            except BlinkTwoFARequiredError:
-                msg = (
-                    "Blink requires two-factor authentication. "
-                    "A verification code has been sent to your email. "
-                    "Submit it at the dashboard."
-                )
-                print(f"  2FA REQUIRED: {msg}")
-                errors.log_error("main.blink_2fa", msg)
-                state.blink_instance = blink
-                state.twofa_pending = False
-                print("  Waiting for 2FA code via dashboard...")
-                while True:
-                    if not state.twofa_pending:
-                        await asyncio.sleep(1)
-                        continue
-                    pin = state.twofa_pin
-                    state.twofa_pin = None
-                    state.twofa_pending = False
-                    print("  Submitting 2FA code...")
-                    try:
-                        ok = await process_2fa_code(blink, pin)
-                        if not ok:
-                            continue
-                        state.blink_instance = None
-                        state.active_blink = blink
-                        _save_blink_auth(blink.auth)
-                        errors.log_error("main.blink_2fa", "2FA completed successfully")
-                        print("  2FA completed successfully")
-                        break
-                    except Exception as e:
-                        errors.log_error("main.blink_2fa_key", f"Exception: {e}", exc_info=True)
-                        print(f"  ERROR: 2FA submission failed: {e}")
+                else:
+                    if login_ok is None:
+                        msg = "Blink requires two-factor authentication."
+                        print(f"  2FA REQUIRED: {msg}")
+                        errors.log_error("main.blink_2fa", msg)
                         state.blink_instance = blink
+                        state.twofa_pending = False
+                    else:
+                        msg = "Blink login failed. Check credentials or rate-limited."
+                        print(f"  {msg}")
+                        errors.log_error("main.blink_setup", msg + " Retrying...")
+                        retry = 60
+                        attempts = 0
+                        while attempts < 5:
+                            await asyncio.sleep(retry)
+                            attempts += 1
+                            print(f"  Retry {attempts}...")
+                            try:
+                                if await blink.start():
+                                    state.active_blink = blink
+                                    _save_blink_auth(blink.auth)
+                                    print("  Blink login successful on retry")
+                                    break
+                            except BlinkTwoFARequiredError:
+                                msg = "Blink now requires 2FA."
+                                print(f"  2FA REQUIRED: {msg}")
+                                errors.log_error("main.blink_2fa", msg)
+                                state.blink_instance = blink
+                                state.twofa_pending = False
+                                break
+                            except Exception:
+                                pass
+                            retry = min(retry * 2, 3600)
+                        else:
+                            state.blink_instance = blink
+                            state.twofa_pending = False
+
+                    if not state.active_blink:
+                        print("  Waiting for user action via dashboard...")
+                        while True:
+                            if not state.twofa_pending:
+                                await asyncio.sleep(1)
+                                continue
+                            pin = state.twofa_pin
+                            state.twofa_pin = None
+                            state.twofa_pending = False
+                            print("  Submitting 2FA code...")
+                            try:
+                                ok = await process_2fa_code(blink, pin)
+                                if not ok:
+                                    continue
+                                state.blink_instance = None
+                                state.active_blink = blink
+                                _save_blink_auth(blink.auth)
+                                errors.log_error("main.blink_2fa", "2FA completed successfully")
+                                print("  2FA completed successfully")
+                                break
+                            except Exception as e:
+                                errors.log_error("main.blink_2fa_key", f"Exception: {e}", exc_info=True)
+                                print(f"  ERROR: 2FA submission failed: {e}")
+                                state.blink_instance = blink
             except Exception as e:
                 errors.log_error("main.blink_setup", str(e), exc_info=True)
                 print(f"  ERROR: Blink setup failed: {e}")
