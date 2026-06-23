@@ -18,21 +18,27 @@ import blinkpy.api as _bapi
 # Patch 1: oauth_signin — accept HTTP 202 alongside legacy 412 for 2FA
 _orig_signin = _bapi.oauth_signin
 
-async def _patched_signin(blink, username, password, force=False):
-    import aiohttp
-    from blinkpy.helpers.util import get_time
-    from blinkpy.helpers.constants import TIMEOUT_MEDIA
+async def _patched_signin(auth, email, password, csrf_token):
+    from blinkpy.helpers.constants import OAUTH_USER_AGENT, OAUTH_SIGNIN_URL
 
-    if not force:
-        skip = blink.auth.check_if_ready()
-        if skip:
-            return "SUCCESS" if skip else None
-    url = f"{blink.urls.base_url}/api/v1/accounts/{blink.account_id}/login"
-    auth_data = {"email": username, "password": password, "force": 1}
-    response = await _bapi.http_post(blink, url, json=auth_data)
+    headers = {
+        "User-Agent": OAUTH_USER_AGENT,
+        "Accept": "*/*",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://api.oauth.blink.com",
+        "Referer": OAUTH_SIGNIN_URL,
+    }
+    data = {
+        "username": email,
+        "password": password,
+        "csrf-token": csrf_token,
+    }
+    response = await auth.session.post(
+        OAUTH_SIGNIN_URL, headers=headers, data=data, allow_redirects=False
+    )
     if response.status in (412, 202):
         return "2FA_REQUIRED"
-    if response.status == 200:
+    if response.status == 302:
         return "SUCCESS"
     return None
 
