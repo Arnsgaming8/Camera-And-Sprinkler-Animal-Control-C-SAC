@@ -12,6 +12,45 @@ from blinkpy.auth import Auth, BlinkTwoFARequiredError
 import errors
 import state
 
+# --- Monkey-patches for blinkpy (shipped to Render) ---
+import blinkpy.api as _bapi
+
+# Patch 1: oauth_signin — accept HTTP 202 alongside legacy 412 for 2FA
+_orig_signin = _bapi.oauth_signin
+
+async def _patched_signin(blink, username, password, force=False):
+    import aiohttp
+    from blinkpy.helpers.util import get_time
+    from blinkpy.helpers.constants import TIMEOUT_MEDIA
+
+    if not force:
+        skip = blink.auth.check_if_ready()
+        if skip:
+            return "SUCCESS" if skip else None
+    url = f"{blink.urls.base_url}/api/v1/accounts/{blink.account_id}/login"
+    auth_data = {"email": username, "password": password, "force": 1}
+    response = await _bapi.http_post(blink, url, json=auth_data)
+    if response.status in (412, 202):
+        return "2FA_REQUIRED"
+    if response.status == 200:
+        return "SUCCESS"
+    return None
+
+_bapi.oauth_signin = _patched_signin
+
+# Patch 2: check_new_video_time — use motion_interval window not last_refresh
+import blinkpy.sync_module as _sm
+_orig_check = _sm.BlinkSyncModule.check_new_video_time
+
+def _patched_check_time(self, timestamp, reference=None):
+    from blinkpy.helpers.util import time_to_seconds
+    if not reference:
+        return time_to_seconds(timestamp) > self.blink.last_refresh - self.motion_interval * 60
+    return time_to_seconds(timestamp) > time_to_seconds(reference)
+
+_sm.BlinkSyncModule.check_new_video_time = _patched_check_time
+# --- End monkey-patches ---
+
 
 def load_config():
     path = state.get_config_path()
