@@ -37,12 +37,20 @@ async def _patched_signin(auth, email, password, csrf_token):
         OAUTH_SIGNIN_URL, headers=headers, data=data, allow_redirects=False
     )
     status = response.status
-    body = await response.text()
-    print(f"  oauth_signin response: status={status}, body={body[:200]}")
     if status in (412, 202):
         return "2FA_REQUIRED"
     if status == 302:
         return "SUCCESS"
+    if status == 429:
+        import json
+        body = await response.text()
+        try:
+            info = json.loads(body)
+            wait = int(info.get("next_time_in_secs", 600))
+        except Exception:
+            wait = 600
+        print(f"  RATE LIMITED by Blink. Waiting {wait}s...")
+        await asyncio.sleep(wait)
     return None
 
 _bapi.oauth_signin = _patched_signin
