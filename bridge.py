@@ -127,6 +127,27 @@ def _save_blink_auth(auth):
     except Exception as e:
         print(f"  Failed to save blink auth to config.yml: {e}")
 
+    api_key = os.environ.get("RENDER_API_KEY") or CONFIG.get("render_api_key")
+    service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")
+    if api_key and service_id:
+        try:
+            import aiohttp
+            async def _save():
+                async with aiohttp.ClientSession() as session:
+                    async with session.put(
+                        f"https://api.render.com/v1/services/{service_id}/env-vars/BLINK_AUTH",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        json={"key": "BLINK_AUTH", "value": json.dumps(data)},
+                    ) as resp:
+                        if resp.status == 200:
+                            print("  Blink auth saved to Render env var")
+                        else:
+                            text = await resp.text()
+                            print(f"  Failed to save blink auth to Render: {resp.status} {text[:200]}")
+            asyncio.create_task(_save())
+        except Exception as e:
+            print(f"  Failed to save blink auth to Render: {e}")
+
 
 def _load_blink_auth():
     import json
