@@ -7,6 +7,7 @@ twofa_pending = False
 twofa_pin = None
 reauth_in_progress = False
 last_poll = None
+last_user_arm = {}
 
 
 def get_config_path():
