@@ -66,6 +66,20 @@ def _patched_check_time(self, timestamp, reference=None):
     return time_to_seconds(timestamp) > time_to_seconds(reference)
 
 _sm.BlinkSyncModule.check_new_video_time = _patched_check_time
+
+# Patch 3: request_videos — log response to debug empty clips
+import blinkpy.api as _api
+_orig_request_videos = _api.request_videos
+
+async def _patched_request_videos(blink, time=None, page=0):
+    resp = await _orig_request_videos(blink, time=time, page=page)
+    if resp is None:
+        print(f"  request_videos returned None (time={time}, page={page})")
+    elif not resp.get("media"):
+        print(f"  request_videos response has no media key: keys={list(resp.keys())[:10]}")
+    return resp
+
+_api.request_videos = _patched_request_videos
 # --- End monkey-patches ---
 
 
