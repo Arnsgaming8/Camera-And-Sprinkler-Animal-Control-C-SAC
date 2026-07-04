@@ -241,65 +241,69 @@ async def main():
         sprinkler_instances: dict[str, SprinklerProvider] = {}
         last_watered: dict[str, float] = {}
         last_record: dict[str, str | None] = {}
+        _providers_initialized = False
 
-        for pname, pconf in provider_configs.items():
-            try:
-                ptype = pconf.get("type", pname)
-                pclass = get_camera_provider(ptype)
-                inst = pclass(pconf, session=session)
-                camera_instances[pname] = inst
-                print(f"  Camera provider '{pname}' ({ptype}) created")
-            except ValueError:
-                try:
-                    ptype = pconf.get("type", pname)
-                    pclass = get_sprinkler_provider(ptype)
-                    inst = pclass(pconf, session=session)
-                    sprinkler_instances[pname] = inst
-                    print(f"  Sprinkler provider '{pname}' ({ptype}) created")
-                except ValueError:
-                    print(f"  WARNING: Unknown provider '{pname}' (type '{pconf.get('type', '')}')")
-                    continue
-
-        if not camera_instances:
-            print("No camera providers initialized. Exiting.")
-            return
-
-        for cam_name, cam_inst in camera_instances.items():
-            if not getattr(cam_inst, "connected", False) and hasattr(cam_inst, "connect"):
-                try:
-                    ok = await asyncio.wait_for(cam_inst.connect(), timeout=30)
-                    if ok:
-                        print(f"  {cam_name} connected")
-                    elif state.blink_instance is not None:
-                        print(f"  {cam_name}: 2FA required")
-                        asyncio.ensure_future(handle_2fa_background(state.blink_instance))
-                    else:
-                        print(f"  {cam_name}: connect failed (will retry in poll)")
-                except asyncio.TimeoutError:
-                    errors.log_error("bridge", f"{cam_name} connect timed out")
-                    print(f"  {cam_name}: connect timed out")
-                except Exception as e:
-                    errors.log_error("bridge", f"{cam_name} connect error: {e}")
-                    print(f"  {cam_name}: connect error: {e}")
-
-        for sp_name, sp_inst in sprinkler_instances.items():
-            if not sp_inst.connected and hasattr(sp_inst, "connect"):
-                try:
-                    ok = await asyncio.wait_for(sp_inst.connect(), timeout=15)
-                    if ok:
-                        print(f"  {sp_name} connected")
-                    else:
-                        print(f"  {sp_name}: connect failed (will retry in poll)")
-                except asyncio.TimeoutError:
-                    print(f"  {sp_name}: connect timed out")
-                except Exception as e:
-                    print(f"  {sp_name}: connect error: {e}")
-
-        disable_polling = CONFIG.get("disable_blink_polling", False) or os.environ.get("DISABLE_BLINK_POLLING") == "1"
+        errors.log_error("bridge.startup", "Entering main loop")
+        print("  Entering main loop")
 
         while True:
             try:
                 state.last_poll = datetime.now(timezone.utc).isoformat()
+
+                if not _providers_initialized:
+                    for pname, pconf in provider_configs.items():
+                        if pname in camera_instances or pname in sprinkler_instances:
+                            continue
+                        try:
+                            ptype = pconf.get("type", pname)
+                            pclass = get_camera_provider(ptype)
+                            inst = pclass(pconf, session=session)
+                            camera_instances[pname] = inst
+                            print(f"  Camera provider '{pname}' ({ptype}) created")
+                        except ValueError:
+                            try:
+                                ptype = pconf.get("type", pname)
+                                pclass = get_sprinkler_provider(ptype)
+                                inst = pclass(pconf, session=session)
+                                sprinkler_instances[pname] = inst
+                                print(f"  Sprinkler provider '{pname}' ({ptype}) created")
+                            except ValueError:
+                                print(f"  WARNING: Unknown provider '{pname}' (type '{pconf.get('type', '')}')")
+
+                    for cam_name, cam_inst in camera_instances.items():
+                        if getattr(cam_inst, "connected", False):
+                            continue
+                        try:
+                            ok = await asyncio.wait_for(cam_inst.connect(), timeout=30)
+                            if ok:
+                                print(f"  {cam_name} connected")
+                            elif state.blink_instance is not None:
+                                print(f"  {cam_name}: 2FA required")
+                                asyncio.ensure_future(handle_2fa_background(state.blink_instance))
+                            else:
+                                print(f"  {cam_name}: connect failed (will retry)")
+                        except asyncio.TimeoutError:
+                            errors.log_error("bridge", f"{cam_name} connect timed out")
+                            print(f"  {cam_name}: connect timed out")
+                        except Exception as e:
+                            errors.log_error("bridge", f"{cam_name} connect error: {e}")
+                            print(f"  {cam_name}: connect error: {e}")
+
+                    for sp_name, sp_inst in sprinkler_instances.items():
+                        if sp_inst.connected:
+                            continue
+                        try:
+                            ok = await asyncio.wait_for(sp_inst.connect(), timeout=15)
+                            if ok:
+                                print(f"  {sp_name} connected")
+                            else:
+                                print(f"  {sp_name}: connect failed (will retry)")
+                        except asyncio.TimeoutError:
+                            print(f"  {sp_name}: connect timed out")
+                        except Exception as e:
+                            print(f"  {sp_name}: connect error: {e}")
+
+                    _providers_initialized = True
 
                 camera_events: list[tuple[str, CameraEvent]] = []
                 for cp_name, cp_inst in camera_instances.items():
