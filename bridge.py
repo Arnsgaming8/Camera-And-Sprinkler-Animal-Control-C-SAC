@@ -266,18 +266,34 @@ async def main():
 
         for cam_name, cam_inst in camera_instances.items():
             if not getattr(cam_inst, "connected", False) and hasattr(cam_inst, "connect"):
-                ok = await cam_inst.connect()
-                if ok:
-                    print(f"  {cam_name} connected")
-                elif state.blink_instance is not None:
-                    print(f"  {cam_name}: 2FA required")
-                    asyncio.ensure_future(handle_2fa_background(state.blink_instance))
+                try:
+                    ok = await asyncio.wait_for(cam_inst.connect(), timeout=30)
+                    if ok:
+                        print(f"  {cam_name} connected")
+                    elif state.blink_instance is not None:
+                        print(f"  {cam_name}: 2FA required")
+                        asyncio.ensure_future(handle_2fa_background(state.blink_instance))
+                    else:
+                        print(f"  {cam_name}: connect failed (will retry in poll)")
+                except asyncio.TimeoutError:
+                    errors.log_error("bridge", f"{cam_name} connect timed out")
+                    print(f"  {cam_name}: connect timed out")
+                except Exception as e:
+                    errors.log_error("bridge", f"{cam_name} connect error: {e}")
+                    print(f"  {cam_name}: connect error: {e}")
 
         for sp_name, sp_inst in sprinkler_instances.items():
             if not sp_inst.connected and hasattr(sp_inst, "connect"):
-                ok = await sp_inst.connect()
-                if ok:
-                    print(f"  {sp_name} connected")
+                try:
+                    ok = await asyncio.wait_for(sp_inst.connect(), timeout=15)
+                    if ok:
+                        print(f"  {sp_name} connected")
+                    else:
+                        print(f"  {sp_name}: connect failed (will retry in poll)")
+                except asyncio.TimeoutError:
+                    print(f"  {sp_name}: connect timed out")
+                except Exception as e:
+                    print(f"  {sp_name}: connect error: {e}")
 
         disable_polling = CONFIG.get("disable_blink_polling", False) or os.environ.get("DISABLE_BLINK_POLLING") == "1"
 
