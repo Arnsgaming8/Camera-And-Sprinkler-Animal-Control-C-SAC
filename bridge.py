@@ -45,6 +45,12 @@ POLL_INTERVAL = CONFIG.get("poll_interval_seconds", 30)
 if not isinstance(POLL_INTERVAL, (int, float)) or POLL_INTERVAL < 1:
     POLL_INTERVAL = 30
 
+# Shared status dict updated by main loop, read by server status endpoint
+PROVIDER_STATUS: dict[str, dict] = {}
+
+# Camera rules list, mutated in-place by server API handlers
+CAMERAS: list[dict] = CONFIG.get("cameras", [])
+
 
 async def _save_blink_auth(auth):
     """Compatibility: save Blink auth to config.yml and Render env var."""
@@ -265,6 +271,7 @@ async def main():
                             pclass = get_camera_provider(ptype)
                             inst = pclass(pconf, session=session)
                             camera_instances[pname] = inst
+                            PROVIDER_STATUS[pname] = {"kind": "camera", "type": ptype, "connected": False}
                             print(f"  Camera provider '{pname}' ({ptype}) created")
                         except ValueError:
                             try:
@@ -272,6 +279,7 @@ async def main():
                                 pclass = get_sprinkler_provider(ptype)
                                 inst = pclass(pconf, session=session)
                                 sprinkler_instances[pname] = inst
+                                PROVIDER_STATUS[pname] = {"kind": "sprinkler", "type": ptype, "connected": False}
                                 print(f"  Sprinkler provider '{pname}' ({ptype}) created")
                             except ValueError:
                                 print(f"  WARNING: Unknown provider '{pname}' (type '{pconf.get('type', '')}')")
@@ -281,6 +289,8 @@ async def main():
                 # Retry connecting providers that aren't connected yet
                 for cam_name, cam_inst in camera_instances.items():
                     if getattr(cam_inst, "connected", False):
+                        PROVIDER_STATUS.setdefault(cam_name, {})["connected"] = True
+                        PROVIDER_STATUS.setdefault(cam_name, {}).pop("error", None)
                         continue
                     last_try = _last_connect_attempt.get(cam_name, 0.0)
                     if time.time() - last_try < _connect_retry_delay:
@@ -289,19 +299,25 @@ async def main():
                     try:
                         ok = await asyncio.wait_for(cam_inst.connect(), timeout=30)
                         if ok:
+                            PROVIDER_STATUS.setdefault(cam_name, {})["connected"] = True
+                            PROVIDER_STATUS.setdefault(cam_name, {}).pop("error", None)
                             print(f"  {cam_name} connected")
                         elif state.blink_instance is not None:
                             print(f"  {cam_name}: 2FA pending")
                             asyncio.ensure_future(handle_2fa_background(state.blink_instance))
                     except asyncio.TimeoutError:
+                        PROVIDER_STATUS.setdefault(cam_name, {})["error"] = "connect timed out"
                         errors.log_error("bridge", f"{cam_name} connect timed out")
                         print(f"  {cam_name}: connect timed out")
                     except Exception as e:
+                        PROVIDER_STATUS.setdefault(cam_name, {})["error"] = str(e)[:120]
                         errors.log_error("bridge", f"{cam_name} connect error: {e}")
                         print(f"  {cam_name}: connect error: {e}")
 
                 for sp_name, sp_inst in sprinkler_instances.items():
                     if sp_inst.connected:
+                        PROVIDER_STATUS.setdefault(sp_name, {})["connected"] = True
+                        PROVIDER_STATUS.setdefault(sp_name, {}).pop("error", None)
                         continue
                     last_try = _last_connect_attempt.get(sp_name, 0.0)
                     if time.time() - last_try < _connect_retry_delay:
@@ -310,10 +326,14 @@ async def main():
                     try:
                         ok = await asyncio.wait_for(sp_inst.connect(), timeout=15)
                         if ok:
+                            PROVIDER_STATUS.setdefault(sp_name, {})["connected"] = True
+                            PROVIDER_STATUS.setdefault(sp_name, {}).pop("error", None)
                             print(f"  {sp_name} connected")
                     except asyncio.TimeoutError:
+                        PROVIDER_STATUS.setdefault(sp_name, {})["error"] = "connect timed out"
                         print(f"  {sp_name}: connect timed out")
                     except Exception as e:
+                        PROVIDER_STATUS.setdefault(sp_name, {})["error"] = str(e)[:120]
                         print(f"  {sp_name}: connect error: {e}")
 
                 camera_events: list[tuple[str, CameraEvent]] = []

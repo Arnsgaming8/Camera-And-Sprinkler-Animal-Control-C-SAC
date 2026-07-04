@@ -23,16 +23,18 @@ SETUP_PAGE = r"""<!DOCTYPE html>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         background: #0d1117; color: #c9d1d9; padding: 24px; max-width: 500px; margin: 0 auto; }
+         background: #0d1117; color: #c9d1d9; padding: 24px; max-width: 640px; margin: 0 auto; }
   h1 { font-size: 1.5rem; margin-bottom: 4px; }
   .sub { color: #8b949e; font-size: 0.9rem; margin-bottom: 24px; }
   .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
   .card h2 { font-size: 1rem; color: #c9d1d9; margin-bottom: 12px; }
+  .card .hint { color: #8b949e; font-size: 0.78rem; margin-top: 4px; }
   label { display: block; color: #8b949e; font-size: 0.85rem; margin-bottom: 4px; margin-top: 12px; }
   .card label:first-child { margin-top: 0; }
-  input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
-          padding: 8px 10px; color: #c9d1d9; font-size: 0.9rem; }
-  input:focus { outline: none; border-color: #58a6ff; }
+  input, select { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+                  padding: 8px 10px; color: #c9d1d9; font-size: 0.9rem; }
+  select { cursor: pointer; }
+  input:focus, select:focus { outline: none; border-color: #58a6ff; }
   .pw-wrap { position: relative; }
   .pw-wrap input { padding-right: 36px; }
   .pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
@@ -43,90 +45,206 @@ SETUP_PAGE = r"""<!DOCTYPE html>
                    padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
                    font-weight: 600; width: 100%; margin-top: 16px; }
   button.primary:hover { background: #2ea043; }
+  button.secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
+                     padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+                     margin-top: 8px; }
+  button.secondary:hover { background: #30363d; }
+  button.danger { background: #21262d; color: #f85149; border: 1px solid #30363d;
+                  padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+                  margin-top: 8px; }
+  button.danger:hover { background: #da3633; border-color: #da3633; color: #fff; }
   .status { margin-top: 12px; font-size: 0.85rem; color: #3fb950; text-align: center; }
   .status.err { color: #da3633; }
   hr { border: none; border-top: 1px solid #21262d; margin: 20px 0; }
-  .hint { color: #8b949e; font-size: 0.78rem; margin-top: 4px; }
+  .rule-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .rule-row select, .rule-row input { flex: 1; }
+  .rule-row button { flex: 0 0 auto; }
+  .provider-entry { border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-top: 8px; }
+  .flex-row { display: flex; gap: 8px; align-items: end; }
+  .flex-row > * { flex: 1; }
+  .tag { display: inline-block; background: #21262d; padding: 2px 8px; border-radius: 4px;
+         font-size: 0.78rem; color: #8b949e; margin-left: 6px; }
 </style>
 </head>
 <body>
-<h1>BABBS — First-Time Setup</h1>
-<p class="sub">Enter your Blink and B-hyve credentials to get started.</p>
+<h1>BABBS — Setup</h1>
+<p class="sub">Configure your cameras and sprinklers.</p>
 
-<div class="card">
-  <h2>Blink Camera Account</h2>
-  <label>Email</label>
-  <input type="email" id="blinkEmail" placeholder="you@example.com">
-  <label>Password</label>
-  <div class="pw-wrap">
-    <input type="password" id="blinkPassword" placeholder="Blink password">
-    <button class="pw-toggle" onclick="togglePw('blinkPassword',this)" type="button">Show</button>
-  </div>
-  <div class="hint">Leave blank if you don't use Blink (set DISABLE_BLINK_POLLING later).</div>
+<div class="card" id="providerConfigs">
+  <h2>Camera Providers <span class="tag" id="availCamProviders"></span></h2>
+  <div id="cameraProviders"></div>
+  <button class="secondary" onclick="addCameraProvider()">+ Add Camera Provider</button>
+
+  <hr>
+
+  <h2>Sprinkler Providers <span class="tag" id="availSprinklerProviders"></span></h2>
+  <div id="sprinklerProviders"></div>
+  <button class="secondary" onclick="addSprinklerProvider()">+ Add Sprinkler Provider</button>
+</div>
+
+<div class="card" id="rulesCard">
+  <h2>Rules <span class="tag">camera → sprinkler zone</span></h2>
+  <div id="rules"></div>
+  <button class="secondary" onclick="addRule()">+ Add Rule</button>
 </div>
 
 <div class="card">
-  <h2>B-hyve Sprinkler Account</h2>
-  <label>Email</label>
-  <input type="email" id="bhyveEmail" placeholder="you@example.com">
-  <label>Password</label>
-  <div class="pw-wrap">
-    <input type="password" id="bhyvePassword" placeholder="B-hyve password">
-    <button class="pw-toggle" onclick="togglePw('bhyvePassword',this)" type="button">Show</button>
-  </div>
-</div>
-
-<div class="card">
-  <h2>Device</h2>
-  <label>Device ID</label>
-  <input type="text" id="deviceId" placeholder="your device id here">
-  <div class="hint">Found in the B-hyve app or by running list_devices.py.</div>
-</div>
-
-<div class="card" id="renderCard">
-  <h2>Render API Key</h2>
+  <h2>Settings</h2>
+  <label>Poll Interval (seconds)</label>
+  <input type="number" id="pollInterval" value="30" min="5">
   <label>Render API Key</label>
   <div class="pw-wrap">
     <input type="password" id="renderApiKey" placeholder="rnd_...">
     <button class="pw-toggle" onclick="togglePw('renderApiKey',this)" type="button">Show</button>
   </div>
-  <div class="hint">Required to save credentials as environment variables. Get it from <a href="https://dashboard.render.com" target="_blank" rel="noopener" style="color:#58a6ff">Render dashboard</a> &rarr; Account &rarr; API Keys &rarr; Create API Key (scope: env_var_write).</div>
+  <div class="hint">Required only to persist credentials as Render env vars (API key with env_var_write scope).</div>
 </div>
 
 <button class="primary" onclick="saveSetup()">Save &amp; Restart</button>
 <div class="status" id="setupStatus"></div>
 
 <script>
+const AVAIL_CAM = ["blink"];
+const AVAIL_SPRINKLER = ["bhyve"];
+
+let camProviders = [];
+let sprProviders = [];
+let rules = [];
+
 function togglePw(id, btn) {
   const inp = document.getElementById(id);
-  if (inp.type === "password") { inp.type = "text"; btn.textContent = "Hide"; }
-  else { inp.type = "password"; btn.textContent = "Show"; }
+  inp.type = inp.type === "password" ? "text" : "password";
+  btn.textContent = inp.type === "password" ? "Show" : "Hide";
 }
+
+function camLabel(t) { return {blink:"Blink"}[t] || t; }
+function sprLabel(t) { return {bhyve:"B-hyve"}[t] || t; }
+
+function camFields(t) {
+  if (t === "blink") return [
+    {key:"email", label:"Email", type:"email"},
+    {key:"password", label:"Password", type:"password"},
+    {key:"motion_interval", label:"Motion Interval (minutes)", type:"number", val:360}
+  ];
+  return [{key:"email", label:"Email", type:"email"},{key:"password", label:"Password", type:"password"}];
+}
+
+function sprFields(t) {
+  if (t === "bhyve") return [
+    {key:"email", label:"Email", type:"email"},
+    {key:"password", label:"Password", type:"password"},
+    {key:"device_id", label:"Device ID", type:"text"}
+  ];
+  return [{key:"email", label:"Email", type:"email"},{key:"password", label:"Password", type:"password"}];
+}
+
+function renderProviders() {
+  const camDiv = document.getElementById("cameraProviders");
+  camDiv.innerHTML = camProviders.map((p, i) => renderProvider(p, i, "cam")).join("");
+  document.getElementById("availCamProviders").textContent = AVAIL_CAM.join(", ");
+
+  const sprDiv = document.getElementById("sprinklerProviders");
+  sprDiv.innerHTML = sprProviders.map((p, i) => renderProvider(p, i, "spr")).join("");
+  document.getElementById("availSprinklerProviders").textContent = AVAIL_SPRINKLER.join(", ");
+
+  const rulesDiv = document.getElementById("rules");
+  rulesDiv.innerHTML = rules.map((r, i) => renderRule(r, i)).join("");
+}
+
+function renderProvider(p, idx, kind) {
+  const avail = kind === "cam" ? AVAIL_CAM : AVAIL_SPRINKLER;
+  const fields = kind === "cam" ? camFields(p.type) : sprFields(p.type);
+  const label = kind === "cam" ? camLabel : sprLabel;
+  const fhtml = fields.map(f => {
+    const val = p.config[f.key] !== undefined ? p.config[f.key] : (f.val !== undefined ? f.val : "");
+    const inp = f.type === "password"
+      ? `<div class="pw-wrap"><input type="password" id="${kind}_${idx}_${f.key}" value="${val}" placeholder="${f.label}" onchange="updateProv(${idx},'${kind}','${f.key}',this.value)"><button class="pw-toggle" onclick="togglePw('${kind}_${idx}_${f.key}',this)" type="button">Show</button></div>`
+      : `<input type="${f.type}" id="${kind}_${idx}_${f.key}" value="${val}" placeholder="${f.label}" onchange="updateProv(${idx},'${kind}','${f.key}',this.value)">`;
+    return `<label>${f.label}</label>${inp}`;
+  }).join("");
+  return `<div class="provider-entry">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong>${label(p.type)}</strong>
+      <button class="danger" onclick="removeProvider(${idx},'${kind}')" style="margin:0;font-size:0.8rem">Remove</button>
+    </div>
+    ${fhtml}
+  </div>`;
+}
+
+function renderRule(r, idx) {
+  const camOpts = camProviders.map((p, i) =>
+    `<option value="cam_${i}" ${r.camera_provider === `cam_${i}` ? "selected" : ""}>${camLabel(p.type)} #${i+1}</option>`
+  ).join("");
+  const sprOpts = sprProviders.map((p, i) =>
+    `<option value="spr_${i}" ${r.sprinkler_provider === `spr_${i}` ? "selected" : ""}>${sprLabel(p.type)} #${i+1}</option>`
+  ).join("");
+  return `<div class="rule-row">
+    <select onchange="updateRule(${idx},'camera_provider',this.value)">
+      <option value="">— Camera —</option>${camOpts}
+    </select>
+    <span style="color:#8b949e">→</span>
+    <select onchange="updateRule(${idx},'sprinkler_provider',this.value)">
+      <option value="">— Sprinkler —</option>${sprOpts}
+    </select>
+    <span style="color:#8b949e">zone</span>
+    <input type="number" value="${r.zone || 1}" min="1" style="width:60px" onchange="updateRule(${idx},'zone',parseInt(this.value)||1)">
+    <span style="color:#8b949e">for</span>
+    <input type="number" value="${r.duration_seconds || 60}" min="1" style="width:70px" onchange="updateRule(${idx},'duration_seconds',parseInt(this.value)||60)">
+    <span style="color:#8b949e">s</span>
+    <button class="danger" onclick="rules.splice(${idx},1);renderProviders()" style="margin:0;font-size:0.8rem">✕</button>
+  </div>`;
+}
+
+function addCameraProvider() { camProviders.push({type:"blink",config:{}}); renderProviders(); }
+function addSprinklerProvider() { sprProviders.push({type:"bhyve",config:{}}); renderProviders(); }
+function addRule() { rules.push({camera_provider:"",sprinkler_provider:"",zone:1,duration_seconds:60}); renderProviders(); }
+
+function removeProvider(idx, kind) {
+  if (kind === "cam") camProviders.splice(idx, 0); else sprProviders.splice(idx, 0);
+  renderProviders();
+}
+function updateProv(idx, kind, key, val) {
+  const arr = kind === "cam" ? camProviders : sprProviders;
+  if (idx >= 0 && idx < arr.length) arr[idx].config[key] = val;
+}
+function updateRule(idx, key, val) { if (idx >= 0 && idx < rules.length) rules[idx][key] = val; }
+
 async function saveSetup() {
   const btn = document.querySelector("button.primary");
   const status = document.getElementById("setupStatus");
-  btn.disabled = true;
-  btn.textContent = "Saving...";
-  status.className = "status";
-  status.textContent = "";
+  btn.disabled = true; btn.textContent = "Saving...";
+  status.className = "status"; status.textContent = "";
+
+  const provider_configs = {};
+  camProviders.forEach((p, i) => { provider_configs[`cam_${i}`] = {type:p.type, ...p.config}; });
+  sprProviders.forEach((p, i) => { provider_configs[`spr_${i}`] = {type:p.type, ...p.config}; });
+
+  const cameras = rules.filter(r => r.camera_provider && r.sprinkler_provider).map((r, i) => ({
+    name: `Camera ${i+1}`,
+    provider: r.camera_provider,
+    sprinkler: r.sprinkler_provider,
+    zone: r.zone,
+    duration_seconds: r.duration_seconds,
+    arm: true,
+    no_water: false
+  }));
+
   try {
     const r = await fetch("/api/setup", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
-        blink_email: document.getElementById("blinkEmail").value.trim(),
-        blink_password: document.getElementById("blinkPassword").value,
-        bhyve_email: document.getElementById("bhyveEmail").value.trim(),
-        bhyve_password: document.getElementById("bhyvePassword").value,
-        device_id: document.getElementById("deviceId").value.trim(),
-        render_api_key: document.getElementById("renderApiKey").value.trim(),
+        provider_configs,
+        cameras,
+        poll_interval_seconds: parseInt(document.getElementById("pollInterval").value) || 30,
+        render_api_key: document.getElementById("renderApiKey").value.trim()
       })
     });
     const data = await r.json();
     if (data.ok) {
-      status.textContent = data.message || "Saved! Restarting service...";
+      status.textContent = data.message || "Saved! Restarting...";
       status.className = "status";
-      setTimeout(() => { fetch("/api/restart", {method: "POST"}); location.href = "/"; }, 2000);
+      setTimeout(() => { fetch("/api/restart", {method:"POST"}); location.href = "/"; }, 2000);
     } else {
       status.textContent = "Error: " + (data.error || "unknown");
       status.className = "status err";
@@ -138,6 +256,11 @@ async function saveSetup() {
   btn.disabled = false;
   btn.textContent = "Save &amp; Restart";
 }
+
+// Init with default providers
+addCameraProvider();
+addSprinklerProvider();
+addRule();
 </script>
 </body>
 </html>"""
@@ -408,8 +531,7 @@ PAGE = r"""<!DOCTYPE html>
 <div class="toolbar">
   <button class="sidebar-btn" onclick="toggleSidebar()">&#9776; Cameras</button>
   <span class="badge" id="count">0 errors</span>
-  <span class="badge" id="blinkStatus" style="font-size:0.8rem">Blink: --</span>
-  <span class="badge" id="bhyveStatus" style="font-size:0.8rem">B-hyve: --</span>
+  <span id="providerStatuses"></span>
   <span class="badge" id="pollStatus" style="font-size:0.8rem">poll: --</span>
   <button id="refreshBtn" onclick="manualRefresh()">Refresh</button>
   <span class="badge" id="zoneBadge" style="display:none"></span>
@@ -583,16 +705,20 @@ async function pollStatus() {
     } else {
       el.textContent = "poll: waiting...";
     }
-    const blinkStatus = document.getElementById("blinkStatus");
-    blinkStatus.textContent = data.blink_connected ? "Blink connected" : "Blink disconnected";
-    blinkStatus.style.color = data.blink_connected ? "#3fb950" : "#da3633";
-    const bhyveStatus = document.getElementById("bhyveStatus");
-    if (bhyveStatus) {
-      bhyveStatus.textContent = data.bhyve_connected ? "B-hyve configured" : "B-hyve not configured";
-      bhyveStatus.style.color = data.bhyve_connected ? "#3fb950" : "#da3633";
+    const providerStatuses = document.getElementById("providerStatuses");
+    if (data.providers) {
+      providerStatuses.innerHTML = data.providers.map(p => {
+        const label = p.type + ":" + p.key;
+        const connected = p.connected;
+        const err = p.error;
+        const color = connected ? "#3fb950" : "#da3633";
+        const text = connected ? (p.type + " connected") : (p.type + (err ? " err" : " disc."));
+        return `<span class="badge" style="font-size:0.8rem;color:${color}" title="${label}${err ? ': '+err : ''}">${text}</span>`;
+      }).join("");
     }
     const setupBtn = document.getElementById("setupBtn");
-    if (setupBtn) setupBtn.style.display = (data.blink_connected && data.bhyve_connected) ? "none" : "";
+    const allOk = data.providers && data.providers.length > 0 && data.providers.every(p => p.connected);
+    if (setupBtn) setupBtn.style.display = allOk ? "none" : "";
     const cancelBtn = document.getElementById("cancelWaterBtn");
     cancelBtn.style.display = data.water_active ? "inline-block" : "none";
   } catch(e) { /* ignore */ }
@@ -986,18 +1112,23 @@ async def handle_error_delete(request):
 
 
 async def handle_status(request):
-    from bridge import POLL_INTERVAL, CONFIG
-    blink = state.active_blink
-    blink_connected = bool(blink and blink.cameras)
-    bhyve_connected = bool(CONFIG.get("bhyve_email") and CONFIG.get("bhyve_password") and CONFIG.get("device_id"))
+    from bridge import POLL_INTERVAL, CONFIG, PROVIDER_STATUS
+    providers = []
+    for key, p in PROVIDER_STATUS.items():
+        providers.append({
+            "key": key,
+            "kind": p.get("kind", "?"),
+            "type": p.get("type", "?"),
+            "connected": p.get("connected", False),
+            "error": p.get("error"),
+        })
     return web.json_response({
         "status": "running",
         "error_count": len(errors.get_errors(9999)),
         "last_poll": state.last_poll,
         "poll_interval": POLL_INTERVAL,
         "water_active": _manual_water_task is not None and not _manual_water_task.done(),
-        "blink_connected": blink_connected,
-        "bhyve_connected": bhyve_connected,
+        "providers": providers,
     })
 
 
@@ -1214,34 +1345,57 @@ async def handle_setup(request):
     else:
         cfg = {}
 
-    blink_email = body.get("blink_email") or ""
-    blink_password = body.get("blink_password") or ""
-    bhyve_email = body.get("bhyve_email") or ""
-    bhyve_password = body.get("bhyve_password") or ""
-    device_id = body.get("device_id") or ""
-    render_api_key = body.get("render_api_key") or ""
+    provider_configs = body.get("provider_configs")
+    cameras = body.get("cameras")
+    render_api_key = body.get("render_api_key", "").strip()
+    poll_interval = body.get("poll_interval_seconds")
 
-    if not bhyve_email or not bhyve_password or not device_id:
-        return web.json_response({"ok": False, "error": "B-hyve email, password, and Device ID are required"}, status=400)
-
-    cfg["bhyve_email"] = bhyve_email
-    cfg["bhyve_password"] = bhyve_password
-    cfg["device_id"] = device_id
-    cfg["render_api_key"] = render_api_key
-
-    if blink_email and blink_password:
-        cfg["blink_email"] = blink_email
-        cfg["blink_password"] = blink_password
-        if "DISABLE_BLINK_POLLING" in os.environ:
-            os.environ.pop("DISABLE_BLINK_POLLING", None)
-        cfg.pop("disable_blink_polling", None)
+    # --- New format: provider_configs + cameras ---
+    if provider_configs and cameras:
+        cfg["provider_configs"] = provider_configs
+        cfg["cameras"] = cameras
+        if poll_interval:
+            cfg["poll_interval_seconds"] = int(poll_interval)
+        if render_api_key:
+            cfg["render_api_key"] = render_api_key
     else:
-        os.environ["DISABLE_BLINK_POLLING"] = "1"
-        cfg["disable_blink_polling"] = True
+        # --- Backward compatible: flat blink/bhyve fields ---
+        blink_email = body.get("blink_email") or ""
+        blink_password = body.get("blink_password") or ""
+        bhyve_email = body.get("bhyve_email") or ""
+        bhyve_password = body.get("bhyve_password") or ""
+        device_id = body.get("device_id") or ""
+        render_api_key = render_api_key or body.get("render_api_key") or ""
 
-    if not cfg.get("cameras"):
-        cfg["cameras"] = [{"name": "Camera 1", "zone": 1, "duration_seconds": 60, "arm": False, "no_water": False}]
+        if not bhyve_email or not bhyve_password or not device_id:
+            return web.json_response({"ok": False, "error": "B-hyve email, password, and Device ID are required"}, status=400)
 
+        cfg["bhyve_email"] = bhyve_email
+        cfg["bhyve_password"] = bhyve_password
+        cfg["device_id"] = device_id
+        cfg["render_api_key"] = render_api_key
+
+        if blink_email and blink_password:
+            cfg["blink_email"] = blink_email
+            cfg["blink_password"] = blink_password
+            if "DISABLE_BLINK_POLLING" in os.environ:
+                os.environ.pop("DISABLE_BLINK_POLLING", None)
+            cfg.pop("disable_blink_polling", None)
+        else:
+            os.environ["DISABLE_BLINK_POLLING"] = "1"
+            cfg["disable_blink_polling"] = True
+
+        # Build provider_configs from flat fields
+        cfg["provider_configs"] = {
+            "blink": {"type": "blink", "email": blink_email, "password": blink_password},
+            "bhyve": {"type": "bhyve", "email": bhyve_email, "password": bhyve_password, "device_id": device_id},
+        }
+
+        if not cfg.get("cameras"):
+            cfg["cameras"] = [{"name": "Camera 1", "provider": "blink", "sprinkler": "bhyve",
+                               "zone": 1, "duration_seconds": 60, "arm": False, "no_water": False}]
+
+    # Write config
     try:
         with open(config_path, "w") as f:
             yaml.dump(cfg, f, default_flow_style=False)
@@ -1249,6 +1403,7 @@ async def handle_setup(request):
         return web.json_response({"ok": False, "error": f"Failed to write config: {e}"}, status=500)
     os.environ.pop("SETUP_MODE", None)
 
+    # --- Persist env vars to Render ---
     has_render_key = bool(os.environ.get("RENDER_API_KEY") or render_api_key)
     service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")
 
@@ -1259,21 +1414,16 @@ async def handle_setup(request):
         try:
             async with aiohttp.ClientSession() as session:
                 updates = {}
-                for env_key, val in [
-                    ("BLINK_EMAIL", blink_email),
-                    ("BLINK_PASSWORD", blink_password),
-                    ("BHYVE_EMAIL", bhyve_email),
-                    ("BHYVE_PASSWORD", bhyve_password),
-                    ("DEVICE_ID", device_id),
-                    ("RENDER_API_KEY", render_api_key),
-                ]:
-                    if val:
-                        updates[env_key] = val
-                if body.get("disable_blink") or (not blink_email and not blink_password):
-                    updates["DISABLE_BLINK_POLLING"] = "1"
-                blink_auth = os.environ.get("BLINK_AUTH")
-                if blink_auth:
-                    updates["BLINK_AUTH"] = blink_auth
+                # Flatten provider configs into env vars
+                for pkey, pconf in provider_configs.items():
+                    for k, v in pconf.items():
+                        if k == "type":
+                            continue
+                        if v:
+                            env_key = f"{pkey.upper()}_{k.upper()}"
+                            updates[env_key] = str(v)
+                if render_api_key:
+                    updates["RENDER_API_KEY"] = render_api_key
                 for env_key, val in updates.items():
                     async with session.put(
                         f"https://api.render.com/v1/services/{service_id}/env-vars/{env_key}",
