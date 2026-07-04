@@ -67,19 +67,12 @@ def _patched_check_time(self, timestamp, reference=None):
 
 _sm.BlinkSyncModule.check_new_video_time = _patched_check_time
 
-# Patch 3: request_videos — log full response body to debug empty clips
+# Patch 3: request_videos — no-op pass-through (retained for future patches)
 import blinkpy.api as _api
 _orig_request_videos = _api.request_videos
 
 async def _patched_request_videos(blink, time=None, page=0):
-    from blinkpy.helpers.util import get_time
-    timestamp = get_time(time)
-    url = f"{blink.urls.base_url}/api/v1/accounts/{blink.account_id}/media/changed?since={timestamp}&page={page}"
-    resp = await _orig_request_videos(blink, time=time, page=page)
-    import json
-    resp_body = json.dumps({k: (v if k != "media" else f"<{len(v)} items>") for k, v in (resp or {}).items()})
-    errors.log_error("debug.request_videos", f"url={url} resp={resp_body} time={time}")
-    return resp
+    return await _orig_request_videos(blink, time=time, page=page)
 
 _api.request_videos = _patched_request_videos
 
