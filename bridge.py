@@ -282,6 +282,8 @@ async def main():
                     if time.time() - last_try < _connect_retry_delay:
                         continue
                     _last_connect_attempt[cam_name] = time.time()
+                    errors.log_error("bridge.retry", f"Connecting {cam_name}...")
+                    print(f"  Connecting {cam_name}...")
                     try:
                         ok = await asyncio.wait_for(cam_inst.connect(), timeout=30)
                         if ok:
