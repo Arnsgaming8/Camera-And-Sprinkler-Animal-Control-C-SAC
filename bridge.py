@@ -72,11 +72,12 @@ import blinkpy.api as _api
 _orig_request_videos = _api.request_videos
 
 async def _patched_request_videos(blink, time=None, page=0):
+    from blinkpy.helpers.util import get_time
+    timestamp = get_time(time)
+    url = f"{blink.urls.base_url}/api/v1/accounts/{blink.account_id}/media/changed?since={timestamp}&page={page}"
     resp = await _orig_request_videos(blink, time=time, page=page)
-    if resp is None:
-        errors.log_error("debug.request_videos", f"returned None (time={time}, page={page})")
-    elif not resp.get("media"):
-        errors.log_error("debug.request_videos", f"no media key: keys={list(resp.keys())[:10]}, has_media={'media' in resp}")
+    import json
+    errors.log_error("debug.request_videos", f"url={url} resp_keys={list(resp.keys())[:10] if resp else None} media_len={len(resp.get('media',[])) if resp else -1} time={time}")
     return resp
 
 _api.request_videos = _patched_request_videos
