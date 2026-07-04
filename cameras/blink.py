@@ -165,7 +165,9 @@ class BlinkCameraProvider(CameraProvider):
                 await self._save_auth()
                 return True
 
-            print("  Blink login failed, will retry")
+            msg = "Blink login failed (check credentials or rate-limited)"
+            print(f"  {msg}")
+            errors.log_error("blink.connect", msg)
             return False
 
         except BlinkTwoFARequiredError:
