@@ -81,6 +81,19 @@ async def _patched_request_videos(blink, time=None, page=0):
     return resp
 
 _api.request_videos = _patched_request_videos
+
+# Patch 4: get_time — use fromtimestamp(..., tz=utc) for Python 3.14 compat
+import blinkpy.helpers.util as _util
+_orig_get_time = _util.get_time
+
+def _patched_get_time(time_to_convert=None):
+    import datetime as _dt
+    if time_to_convert is None:
+        time_to_convert = time.time()
+    utc_dt = _dt.datetime.fromtimestamp(time_to_convert, tz=_dt.timezone.utc)
+    return utc_dt.strftime("%Y-%m-%dT%H:%M:%S") + "+00:00"
+
+_util.get_time = _patched_get_time
 # --- End monkey-patches ---
 
 
