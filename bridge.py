@@ -67,16 +67,7 @@ def _patched_check_time(self, timestamp, reference=None):
 
 _sm.BlinkSyncModule.check_new_video_time = _patched_check_time
 
-# Patch 3: request_videos — no-op pass-through (retained for future patches)
-import blinkpy.api as _api
-_orig_request_videos = _api.request_videos
-
-async def _patched_request_videos(blink, time=None, page=0):
-    return await _orig_request_videos(blink, time=time, page=page)
-
-_api.request_videos = _patched_request_videos
-
-# Patch 4: get_time — use fromtimestamp(..., tz=utc) for Python 3.14 compat
+# Patch 3: get_time — use fromtimestamp(..., tz=utc) for Python 3.14 compat
 import blinkpy.helpers.util as _util
 _orig_get_time = _util.get_time
 
