@@ -1,3 +1,4 @@
+# === Option A: OLD format (Blink + B-hyve only) ===
 bhyve_email: your-email@example.com
 bhyve_password: your-bhyve-password
 blink_email: your-email@example.com
@@ -12,3 +13,60 @@ cameras:
     arm: true
     no_water: false
 render_api_key: ""
+
+# === Option B: NEW format (any brand) ===
+# Uncomment and adapt for your brands:
+#
+# poll_interval_seconds: 30
+#
+# provider_configs:
+#   my_blink:
+#     type: blink
+#     email: your-email@example.com
+#     password: your-password
+#     motion_interval: 360
+#   my_ring:
+#     type: ring
+#     email: your-email@example.com
+#     password: your-password
+#     motion_interval: 30
+#   my_rtsp_cam:
+#     type: rtsp
+#     url: rtsp://camera.local:554/stream
+#     motion:
+#       method: opencv  # or: mqtt, http
+#   my_bhyve:
+#     type: bhyve
+#     email: your-email@example.com
+#     password: your-password
+#     device_id: "607220244f0c161d5a0d1648"
+#
+# cameras:
+#   - name: "Front yard"
+#     provider: my_blink
+#     zone: 1
+#     duration_seconds: 180
+#     arm: true
+#     no_water: false
+#   - name: "Back yard"
+#     provider: my_ring
+#     zone: 2
+#     duration_seconds: 120
+#     arm: true
+#   - name: "Driveway"
+#     provider: my_rtsp_cam
+#     zone: 1
+#     duration_seconds: 60
+#     arm: true
+#
+# rules:
+#   - camera: Front yard
+#     camera_provider: my_blink
+#     sprinkler_provider: my_bhyve
+#     zone: 1
+#     duration_seconds: 180
+#   - camera: Back yard
+#     camera_provider: my_ring
+#     sprinkler_provider: my_bhyve
+#     zone: 2
+#     duration_seconds: 120
