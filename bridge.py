@@ -222,6 +222,7 @@ async def handle_2fa_background(blink):
 
 
 async def main():
+    errors.log_error("bridge.startup", "Bridge main() started")
     print("=== Motion → Sprinkler Bridge ===")
     rules = parse_rules(CONFIG)
     if not rules:
