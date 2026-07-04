@@ -12,6 +12,10 @@ import state
 from cameras import CameraProvider, CameraEvent, get_provider as get_camera_provider
 from sprinklers import SprinklerProvider, get_provider as get_sprinkler_provider
 
+# Import providers to trigger registration
+import cameras.blink  # noqa: F401
+import sprinklers.bhyve  # noqa: F401
+
 
 def load_config():
     path = state.get_config_path()
@@ -282,8 +286,6 @@ async def main():
                     if time.time() - last_try < _connect_retry_delay:
                         continue
                     _last_connect_attempt[cam_name] = time.time()
-                    errors.log_error("bridge.retry", f"Connecting {cam_name}...")
-                    print(f"  Connecting {cam_name}...")
                     try:
                         ok = await asyncio.wait_for(cam_inst.connect(), timeout=30)
                         if ok:
