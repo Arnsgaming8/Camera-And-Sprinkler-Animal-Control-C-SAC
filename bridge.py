@@ -74,9 +74,9 @@ _orig_request_videos = _api.request_videos
 async def _patched_request_videos(blink, time=None, page=0):
     resp = await _orig_request_videos(blink, time=time, page=page)
     if resp is None:
-        print(f"  request_videos returned None (time={time}, page={page})")
+        errors.log_error("debug.request_videos", f"returned None (time={time}, page={page})")
     elif not resp.get("media"):
-        print(f"  request_videos response has no media key: keys={list(resp.keys())[:10]}")
+        errors.log_error("debug.request_videos", f"no media key: keys={list(resp.keys())[:10]}, has_media={'media' in resp}")
     return resp
 
 _api.request_videos = _patched_request_videos
