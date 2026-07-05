@@ -155,6 +155,7 @@ function renderProvider(p, idx, kind) {
   const avail = kind === "cam" ? AVAIL_CAM : AVAIL_SPRINKLER;
   const fields = kind === "cam" ? camFields(p.type) : sprFields(p.type);
   const label = kind === "cam" ? camLabel : sprLabel;
+  const typeOpts = avail.map(t => `<option value="${t}" ${p.type === t ? "selected" : ""}>${label(t)}</option>`).join("");
   const fhtml = fields.map(f => {
     const val = p.config[f.key] !== undefined ? p.config[f.key] : (f.val !== undefined ? f.val : "");
     const inp = f.type === "password"
@@ -164,7 +165,7 @@ function renderProvider(p, idx, kind) {
   }).join("");
   return `<div class="provider-entry">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <strong>${label(p.type)}</strong>
+      <select onchange="changeProviderType(${idx},'${kind}',this.value)" style="width:auto;flex:1">${typeOpts}</select>
       <button class="danger" onclick="removeProvider(${idx},'${kind}')" style="margin:0;font-size:0.8rem">Remove</button>
     </div>
     ${fhtml}
@@ -200,12 +201,17 @@ function addSprinklerProvider() { sprProviders.push({type:"bhyve",config:{}}); r
 function addRule() { rules.push({camera_provider:"",sprinkler_provider:"",zone:1,duration_seconds:60}); renderProviders(); }
 
 function removeProvider(idx, kind) {
-  if (kind === "cam") camProviders.splice(idx, 0); else sprProviders.splice(idx, 0);
+  if (kind === "cam") camProviders.splice(idx, 1); else sprProviders.splice(idx, 1);
   renderProviders();
 }
 function updateProv(idx, kind, key, val) {
   const arr = kind === "cam" ? camProviders : sprProviders;
   if (idx >= 0 && idx < arr.length) arr[idx].config[key] = val;
+}
+function changeProviderType(idx, kind, newType) {
+  const arr = kind === "cam" ? camProviders : sprProviders;
+  if (idx >= 0 && idx < arr.length) { arr[idx].type = newType; arr[idx].config = {}; }
+  renderProviders();
 }
 function updateRule(idx, key, val) { if (idx >= 0 && idx < rules.length) rules[idx][key] = val; }
 
