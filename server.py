@@ -104,8 +104,18 @@ SETUP_PAGE = r"""<!DOCTYPE html>
 <div class="status" id="setupStatus"></div>
 
 <script>
-const AVAIL_CAM = ["blink"];
-const AVAIL_SPRINKLER = ["bhyve"];
+const AVAIL_CAM = [
+  "blink", "ring", "arlo", "nest", "wyze", "eufy", "reolink",
+  "hikvision", "dahua", "amcrest", "foscam", "logitech", "tplink",
+  "unifi", "axis", "bosch", "panasonic", "samsung", "vivotek",
+  "geeni", "canary", "simplisafe", "lorex", "swann", "zmodo",
+  "rtsp", "onvif", "mjpeg", "generic"
+];
+const AVAIL_SPRINKLER = [
+  "bhyve", "rachio", "rainbird", "hunter", "hydrawise",
+  "netro", "blossom", "skydrop", "sprinklerware", "openSprinkler",
+  "generic"
+];
 
 let camProviders = [];
 let sprProviders = [];
@@ -117,8 +127,26 @@ function togglePw(id, btn) {
   btn.textContent = inp.type === "password" ? "Show" : "Hide";
 }
 
-function camLabel(t) { return {blink:"Blink"}[t] || t; }
-function sprLabel(t) { return {bhyve:"B-hyve"}[t] || t; }
+function camLabel(t) {
+  const m = {
+    blink:"Blink", ring:"Ring", arlo:"Arlo", nest:"Nest", wyze:"Wyze",
+    eufy:"Eufy", reolink:"Reolink", hikvision:"Hikvision", dahua:"Dahua",
+    amcrest:"Amcrest", foscam:"Foscam", logitech:"Logitech", tplink:"TP-Link",
+    unifi:"UniFi", axis:"Axis", bosch:"Bosch", panasonic:"Panasonic",
+    samsung:"Samsung", vivotek:"Vivotek", geeni:"Geeni", canary:"Canary",
+    simplisafe:"SimpliSafe", lorex:"Lorex", swann:"Swann", zmodo:"Zmodo",
+    rtsp:"RTSP", onvif:"ONVIF", mjpeg:"MJPEG", generic:"Generic"
+  };
+  return m[t] || t;
+}
+function sprLabel(t) {
+  const m = {
+    bhyve:"B-hyve", rachio:"Rachio", rainbird:"RainBird", hunter:"Hunter",
+    hydrawise:"Hydrawise", netro:"Netro", blossom:"Blossom", skydrop:"SkyDrop",
+    sprinklerware:"Sprinklerware", openSprinkler:"OpenSprinkler", generic:"Generic"
+  };
+  return m[t] || t;
+}
 
 function camFields(t) {
   if (t === "blink") return [
@@ -155,7 +183,8 @@ function renderProvider(p, idx, kind) {
   const avail = kind === "cam" ? AVAIL_CAM : AVAIL_SPRINKLER;
   const fields = kind === "cam" ? camFields(p.type) : sprFields(p.type);
   const label = kind === "cam" ? camLabel : sprLabel;
-  const typeOpts = avail.map(t => `<option value="${t}" ${p.type === t ? "selected" : ""}>${label(t)}</option>`).join("");
+  const listId = kind + "_type_" + idx;
+  const opts = avail.map(t => `<option value="${t}">${label(t)}</option>`).join("");
   const fhtml = fields.map(f => {
     const val = p.config[f.key] !== undefined ? p.config[f.key] : (f.val !== undefined ? f.val : "");
     const inp = f.type === "password"
@@ -165,8 +194,9 @@ function renderProvider(p, idx, kind) {
   }).join("");
   return `<div class="provider-entry">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <select onchange="changeProviderType(${idx},'${kind}',this.value)" style="width:auto;flex:1">${typeOpts}</select>
-      <button class="danger" onclick="removeProvider(${idx},'${kind}')" style="margin:0;font-size:0.8rem">Remove</button>
+      <input list="${listId}" value="${p.type}" placeholder="Search provider type…" onchange="changeProviderType(${idx},'${kind}',this.value)" style="flex:1">
+      <datalist id="${listId}">${opts}</datalist>
+      <button class="danger" onclick="removeProvider(${idx},'${kind}')" style="margin:0 0 0 6px;font-size:0.8rem">Remove</button>
     </div>
     ${fhtml}
   </div>`;
