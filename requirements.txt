@@ -9,8 +9,8 @@ hikvisionapi>=0.3.0
 dahua-rpc-api>=0.1.0
 amcrest>=1.9.0
 libpyfoscam>=1.0.0
-pyunifiprotect>=6.0.0
-axis>=51.0.0
+uiprotect>=13.0.0
+axis>=48.0.0
 libpyvivotek>=0.3.0
 onvif-zeep>=0.2.0
 opencv-python-headless>=4.8.0
@@ -18,7 +18,7 @@ numpy>=1.24.0
 
 # Sprinkler providers
 RachioPy>=0.3.0
-pyrainbird>=6.0.0
+pyrainbird>=4.0.0
 pydrawise>=0.8.0
 pyopensprinkler>=0.7.0
 netrohomeapi>=0.1.0

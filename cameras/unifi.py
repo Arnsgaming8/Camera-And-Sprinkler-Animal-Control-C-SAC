@@ -25,8 +25,7 @@ class UnifiCameraProvider(CameraProvider):
 
     async def connect(self) -> bool:
         try:
-            from pyunifiprotect import ProtectApiClient
-            from pyunifiprotect.data import StateType
+            from uiprotect import ProtectApiClient
             self._api = ProtectApiClient(
                 host=self._host,
                 port=self._port,
@@ -34,7 +33,7 @@ class UnifiCameraProvider(CameraProvider):
                 password=self._password,
                 verify_ssl=self._verify_ssl,
             )
-            await self._api.get_bootstrap()
+            await self._api.update()
             self._connected = True
             return True
         except Exception as e:
@@ -46,18 +45,25 @@ class UnifiCameraProvider(CameraProvider):
         if not self._connected or not self._api:
             return events
         try:
-            events_data = await self._api.get_events(limit=10)
-            for ev in events_data:
-                if hasattr(ev, "type") and ev.type in ("motion", "smartDetectZone", "ring"):
-                    event_id = ev.id if hasattr(ev, "id") else str(ev.start)
-                    if event_id not in self._last_event_ids:
-                        self._last_event_ids.add(event_id)
-                        camera_name = f"unifi_cam"
-                        if hasattr(ev, "camera") and ev.camera:
-                            camera_name = f"unifi_{ev.camera.name}"
-                        ts = ev.start.timestamp() if hasattr(ev, "start") else time.time()
-                        evt = CameraEvent(camera_name=camera_name, timestamp=ts)
-                        events.append(evt)
+            await self._api.update()
+            for camera_id, camera in self._api.bootstrap.cameras.items():
+                try:
+                    last_motion = getattr(camera, "last_motion_event_id", None)
+                    is_motion = getattr(camera, "is_motion_detected", False)
+                    if last_motion and last_motion not in self._last_event_ids:
+                        self._last_event_ids.add(last_motion)
+                        name = f"unifi_{camera.name}"
+                        ev = CameraEvent(camera_name=name, timestamp=time.time())
+                        events.append(ev)
+                    elif is_motion:
+                        event_id = f"{camera_id}_{time.time()}"
+                        if event_id not in self._last_event_ids:
+                            self._last_event_ids.add(event_id)
+                            name = f"unifi_{camera.name}"
+                            ev = CameraEvent(camera_name=name, timestamp=time.time())
+                            events.append(ev)
+                except Exception as e:
+                    errors.log_error("unifi.check_motion.camera", str(e))
         except Exception as e:
             errors.log_error("unifi.check_motion", str(e), exc_info=True)
         return events
