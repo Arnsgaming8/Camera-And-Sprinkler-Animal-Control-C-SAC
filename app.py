@@ -78,6 +78,26 @@ def generate_config():
         cam.setdefault("no_water", False)
         cam.setdefault("arm", True)
 
+    # Build provider_configs from flat env-var keys if not already set
+    if "provider_configs" not in config:
+        pconfs = {}
+        if config.get("blink_email") and config.get("blink_password"):
+            pconfs["blink"] = {
+                "type": "blink",
+                "email": config["blink_email"],
+                "password": config["blink_password"],
+                "motion_interval": config.get("motion_interval", 360),
+            }
+        if config.get("bhyve_email") and config.get("bhyve_password") and config.get("device_id"):
+            pconfs["bhyve"] = {
+                "type": "bhyve",
+                "email": config["bhyve_email"],
+                "password": config["bhyve_password"],
+                "device_id": config["device_id"],
+            }
+        if pconfs:
+            config["provider_configs"] = pconfs
+
     with open(CONFIG_PATH, "w") as f:
         yaml.dump(config, f, default_flow_style=False)
     print(f"Config written to {CONFIG_PATH}")

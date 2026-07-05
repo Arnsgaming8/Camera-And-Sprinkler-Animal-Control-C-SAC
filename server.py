@@ -1348,7 +1348,17 @@ async def _get_sprinkler_provider(provider_key: str = "") -> "SprinklerProvider 
             except ValueError:
                 continue
         else:
-            return None
+            # Fallback: build from flat config keys (old format)
+            if _cfg.get("bhyve_email") and _cfg.get("bhyve_password") and _cfg.get("device_id"):
+                pconf = {
+                    "type": "bhyve",
+                    "email": _cfg["bhyve_email"],
+                    "password": _cfg["bhyve_password"],
+                    "device_id": _cfg["device_id"],
+                }
+                provider_key = "bhyve"
+            else:
+                return None
     import aiohttp
     session = aiohttp.ClientSession()
     cls = get_sprinkler_cls(pconf.get("type", provider_key))
