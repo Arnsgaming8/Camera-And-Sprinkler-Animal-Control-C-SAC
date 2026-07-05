@@ -1,149 +1,143 @@
-# BABBS — Blink And Bhyve Bunny System
+# BABBS — Brand-Agnostic Bridge System
 
 <p align="left">
   <a href="https://render.com/deploy"><img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render"></a>
-  <a href="#deploy-to-render"><img src="https://img.shields.io/badge/View_Deploy_Guide-2D2D2D?style=for-the-badge&logo=readthedocs&logoColor=white" alt="View Deploy Guide"></a>
 </p>
 
-A Python async bridge that detects motion on **Blink security cameras** and automatically waters **Orbit B-hyve** sprinkler zones. Runs entirely on **Render** (free tier) — no extra hardware needed.
+A Python async bridge that detects motion on **any supported camera** and automatically waters **any supported sprinkler** zone. Runs entirely on **Render** (free tier) — no extra hardware needed.
 
-## Features
+## Supported Providers
 
-- **Multi-camera support** — configure any number of Blink cameras, each mapped to a different sprinkler zone with its own duration
-- **Dashboard UI** — live error/motion log, sidebar with camera arm/disarm toggles, add/edit/delete cameras
-- **Poll countdown badge** — shows seconds until next Blink check
-- **2FA handling** — enter Blink verification codes from the dashboard
-- **Manual watering** — trigger any zone from the UI (seconds or minutes)
-- **ESP32/PIR support** — optional `/api/esp32/trigger` endpoint for external motion detectors (bypasses Blink polling)
-- **`DISABLE_BLINK_POLLING` mode** — skip Blink entirely and rely on ESP32 triggers only
-- **Render env var persistence** — camera changes made via the UI are saved back to Render environment variables (survives restart)
+### Camera Providers (15)
+
+| Type | Python Package | Auth | Motion Detection |
+|---|---|---|---|
+| `blink` | blinkpy 0.25.5 | email + password + 2FA | Cloud event polling |
+| `ring` | ring_doorbell | email + password | Cloud event polling |
+| `reolink` | reolink-aio | host + username + password | Local API motion state |
+| `hikvision` | hikvisionapi | host + username + password | ISAPI alert stream |
+| `dahua` | dahua-rpc | host + username + password | Alarm records |
+| `amcrest` | amcrest | host + username + password | Motion flag per channel |
+| `foscam` | libpyfoscam | host + username + password | Alarm records |
+| `unifi` | pyunifiprotect | host + username + password | Protect motion events |
+| `axis` | axis | host + username + password | MQTT motion topics |
+| `vivotek` | libpyvivotek | host + username + password | Motion detection param |
+| `rtsp` | opencv-python | RTSP URL + auth | Background subtraction |
+| `onvif` | onvif-zeep | host + username + password | Pull-point event subscription |
+| `mjpeg` | opencv-python | MJPEG URL + auth | Background subtraction |
+| `generic` | opencv-python | Stream URL + auth | Background subtraction |
+
+### Sprinkler Providers (6)
+
+| Type | Python Package | Auth |
+|---|---|---|
+| `bhyve` | aiohttp (custom) | email + password + device_id |
+| `rachio` | RachioPy | API token |
+| `rainbird` | pyrainbird | host + password (LNK module) |
+| `hydrawise` | pydrawise | API key |
+| `opensprinkler` | pyopensprinkler | host + password |
+| `netro` | netrohomeapi | serial + API key |
 
 ## How it works
 
 ```
-Blink cameras ──(poll every 30s)──> New clip detected?
-                    │                       │ yes
-                    │                       ▼
-                    │             Look up camera → zone mapping
-                    │                       │
-                    │                       ▼
-                    │             B-hyve start_zone(duration)
-                    │                       │
-                    │                       ▼
-                    │             Wait for duration, then stop
-                    │
-               Dashboard UI
-          (http://your-service.onrender.com)
+Camera provider ──(poll every Ns)──> Motion detected?
+       │                    │               │ yes
+       │                    │               ▼
+       │                    │     Look up rule: camera → sprinkler zone
+       │                    │               │
+       │                    │               ▼
+       │                    │     Sprinkler start_zone(duration)
+       │                    │               │
+       │                    │               ▼
+       │                    │     Wait, then stop_zone()
+       │                    │
+  Dashboard UI (http://your-service.onrender.com)
 ```
+
+Any camera provider can be paired with any sprinkler provider via rules.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `bridge.py` | Main daemon — polls Blink cameras, triggers B-hyve watering with per-zone cooldown |
-| `server.py` | Web dashboard — error log, sidebar with camera controls, modal add/edit/delete, manual watering, 2FA, poll badge |
-| `errors.py` | Shared error logging (in-memory on Render) |
+| `bridge.py` | Main daemon — polls cameras, triggers sprinklers with per-zone cooldown |
+| `server.py` | Web dashboard — setup form, error log, sidebar, manual watering, 2FA |
+| `cameras/__init__.py` | CameraProvider base class + registry |
+| `cameras/*.py` | Individual camera provider implementations |
+| `sprinklers/__init__.py` | SprinklerProvider base class + registry |
+| `sprinklers/*.py` | Individual sprinkler provider implementations |
+| `errors.py` | Shared error logging |
 | `state.py` | Shared state — Blink instance, 2FA pin, poll timestamps |
-| `app.py` | Render entry point — merges env vars into config, runs bridge + dashboard in one process |
-| `list_devices.py` | Utility to discover your B-hyve device ID and zones |
-| `config.yml` | Local credentials and settings (gitignored — generated from env vars in production) |
+| `app.py` | Render entry point — merges env vars into config, runs bridge + dashboard |
+| `config.yml` | Local credentials and settings (gitignored) |
 | `render.yaml` | Render Blueprint for one-click deployment |
-
-## Local usage
-
-```pwsh
-pip install -r requirements.txt
-```
-
-1. Copy `config.example.yml` to `config.yml` and fill in your credentials.
-2. Run `python list_devices.py` to find your B-hyve device ID and zone numbers.
-3. Update `config.yml` with the device ID and camera list.
-
-```pwsh
-# Single process — bridge + dashboard together
-python app.py
-
-# Or separately:
-#   Terminal 1: python bridge.py
-#   Terminal 2: python server.py
-# Open http://localhost:5000
-```
 
 ## Deploy to Render
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 
 1. Click the Deploy to Render button
-2. in the "Specified configurations" box click on "Create all as new services" do not mind the credential form next to it. you will enter those on site.
-3. After all that, click on deploy. then go to Resources on the left hand sidebar. and click on your web service which look like "blink-byhve-bridge-####".
-4. When the service is done deploying click on your link which would be the small purple words under the big header
-5. No environment variables needed — the setup form at `/setup` will prompt for credentials on first run.
-
-### Optional env vars
-
-All credentials can be entered via the setup form. These env vars are only needed if you want to skip the setup form:
-
-| Variable | Default | Description |
-|---|---|---|
-| `BLINK_EMAIL` | — | Blink account email |
-| `BLINK_PASSWORD` | — | Blink account password |
-| `BHYVE_EMAIL` | — | Orbit B-hyve account email |
-| `BHYVE_PASSWORD` | — | Orbit B-hyve account password |
-| `DEVICE_ID` | — | Your B-hyve sprinkler device ID |
-| `CAMERAS` | — | JSON array of camera configs (see below). Overrides `cameras` in config.yml |
-| `POLL_INTERVAL_SECONDS` | `30` | How often to check Blink for new clips |
-| `DISABLE_BLINK_POLLING` | — | Set to `1` to skip Blink polling (use ESP32 triggers only) |
-| `RENDER_API_KEY` | — | Render API key with `env_var_write` scope. When set, camera changes made in the UI persist across restarts |
-
-### `CAMERAS` env var format
-
-```json
-[
-  {"name": "Front Door", "zone": 1, "duration_seconds": 20},
-  {"name": "Back yard",  "zone": 2, "duration_seconds": 30}
-]
-```
+2. In "Specified configurations" click "Create all as new services" (ignore the credential fields)
+3. After creation, go to Resources → click your web service
+4. Once deployed, open the service URL → the setup form at `/setup` will prompt for credentials
 
 ## Config
 
-```yaml
-blink_email: "your-blink-email@example.com"
-blink_password: "your-blink-password"
+Providers and rules are configured via `config.yml` or the setup form:
 
-bhyve_email: "your-bhyve-email@example.com"
-bhyve_password: "your-bhyve-password"
-device_id: "find-this-by-running-python-list_devices.py"
+```yaml
+provider_configs:
+  blink:
+    type: blink
+    email: "user@example.com"
+    password: "secret"
+  bhyve:
+    type: bhyve
+    email: "user@example.com"
+    password: "secret"
+    device_id: "abc123"
 
 poll_interval_seconds: 30
 
 cameras:
   - name: "Front Door"
+    provider: blink
+    sprinkler: bhyve
     zone: 1
     duration_seconds: 20
   - name: "Back yard"
+    provider: blink
+    sprinkler: bhyve
     zone: 2
     duration_seconds: 30
 ```
 
-## Dashboard
+## Local usage
 
-The dashboard at `/` shows:
-
-- **Toolbar** — hamburger sidebar toggle, error count, poll countdown, refresh, clear all
-- **Camera sidebar** — toggle arm/disarm per camera, add/edit/delete cameras (name, zone, duration)
-- **Manual watering** — send any zone to any sprinkler station (minutes or seconds)
-- **Error/motion log** — real-time feed of events with copy and traceback support
-- **2FA banner** — appears when Blink requires a verification code
-
-## ESP32 / External Trigger
-
-Send a POST to `/api/esp32/trigger` to trigger watering from an external motion sensor:
-
-```json
-{"camera": "Back yard", "zone": 2, "duration": 10}
+```pwsh
+pip install -r requirements.txt
+python app.py
+# Open http://localhost:5000 → /setup to configure
 ```
 
-This bypasses Blink polling entirely. Useful with `DISABLE_BLINK_POLLING=1`.
+## Writing a new provider
+
+Create a file in `cameras/` or `sprinklers/` that implements the base class and calls `register()`:
+
+```python
+from . import CameraProvider, CameraEvent, register
+
+class MyCam(CameraProvider):
+    name = "mybrand"
+    async def connect(self) -> bool: ...
+    async def check_motion(self) -> list[CameraEvent]: ...
+    async def disconnect(self): ...
+
+register("mybrand", MyCam)
+```
+
+Then add `import cameras.mybrand` to `bridge.py`.
 
 ## License
 
