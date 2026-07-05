@@ -10,6 +10,21 @@ from aiohttp import web
 import errors
 import state
 
+# Import all providers to populate registry for the setup page
+for _mod in [
+    "cameras.blink", "cameras.ring", "cameras.reolink",
+    "cameras.hikvision", "cameras.dahua", "cameras.amcrest",
+    "cameras.foscam", "cameras.unifi", "cameras.axis",
+    "cameras.vivotek", "cameras.rtsp", "cameras.onvif",
+    "cameras.mjpeg", "cameras.generic",
+    "sprinklers.bhyve", "sprinklers.rachio", "sprinklers.rainbird",
+    "sprinklers.hydrawise", "sprinklers.opensprinkler", "sprinklers.netro",
+]:
+    try:
+        __import__(_mod)
+    except Exception:
+        pass
+
 HOST = os.environ.get("ERROR_HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT") or os.environ.get("ERROR_PORT") or "5000")
 
@@ -104,18 +119,8 @@ SETUP_PAGE = r"""<!DOCTYPE html>
 <div class="status" id="setupStatus"></div>
 
 <script>
-const AVAIL_CAM = [
-  "blink", "ring", "arlo", "nest", "wyze", "eufy", "reolink",
-  "hikvision", "dahua", "amcrest", "foscam", "logitech", "tplink",
-  "unifi", "axis", "bosch", "panasonic", "samsung", "vivotek",
-  "geeni", "canary", "simplisafe", "lorex", "swann", "zmodo",
-  "rtsp", "onvif", "mjpeg", "generic"
-];
-const AVAIL_SPRINKLER = [
-  "bhyve", "rachio", "rainbird", "hunter", "hydrawise",
-  "netro", "blossom", "skydrop", "sprinklerware", "openSprinkler",
-  "generic"
-];
+const AVAIL_CAM = __AVAIL_CAM__;
+const AVAIL_SPRINKLER = __AVAIL_SPRINKLER__;
 
 let camProviders = [];
 let sprProviders = [];
@@ -1194,7 +1199,13 @@ def _has_credentials():
 
 
 async def handle_setup_page(request):
-    return web.Response(text=SETUP_PAGE, content_type="text/html")
+    import json
+    from cameras import list_providers as list_cam_providers
+    from sprinklers import list_providers as list_spr_providers
+    cam_json = json.dumps(list_cam_providers())
+    spr_json = json.dumps(list_spr_providers())
+    page = SETUP_PAGE.replace("__AVAIL_CAM__", cam_json).replace("__AVAIL_SPRINKLER__", spr_json)
+    return web.Response(text=page, content_type="text/html")
 
 
 async def handle_errors(request):
