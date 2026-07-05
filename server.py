@@ -1225,49 +1225,85 @@ _manual_water_task = None
 _water_pending = False
 _water_cancel_requested = False
 
+
+async def _get_sprinkler_provider(provider_key: str = "") -> "SprinklerProvider | None":
+    from sprinklers import get_provider as get_sprinkler_cls
+    from bridge import CONFIG as _cfg
+    pconfs = _cfg.get("provider_configs", {})
+    if provider_key and provider_key in pconfs:
+        pconf = pconfs[provider_key]
+    else:
+        for k, v in pconfs.items():
+            try:
+                get_sprinkler_cls(v.get("type", ""))
+                provider_key = k
+                pconf = v
+                break
+            except ValueError:
+                continue
+        else:
+            return None
+    import aiohttp
+    session = aiohttp.ClientSession()
+    cls = get_sprinkler_cls(pconf.get("type", provider_key))
+    inst = cls(pconf, session=session)
+    try:
+        ok = await asyncio.wait_for(inst.connect(), timeout=15)
+        if not ok:
+            await session.close()
+            return None
+    except Exception:
+        await session.close()
+        return None
+    return inst
+
+
 async def _manual_water(zone=None, duration_seconds=None):
     global _manual_water_task, _water_pending, _water_cancel_requested
     zone_started = False
+    spr_inst = None
     try:
         if _water_cancel_requested:
             errors.log_error("watering", "Manual water aborted before start (cancel requested)")
             return
-        from bridge import CONFIG, DURATION_SECONDS, BHyveClient
+        spr_inst = await _get_sprinkler_provider()
+        if not spr_inst:
+            errors.log_error("watering", "No sprinkler provider available for manual water")
+            return
         if zone is None:
-            zone = CONFIG["zone_number"]
+            zone = 6
         if duration_seconds is None:
-            duration_seconds = DURATION_SECONDS
-        async with aiohttp.ClientSession() as session:
-            bhyve = BHyveClient(session)
-            bhyve.device_id = CONFIG["device_id"]
-            await bhyve.login()
-            minutes = max(1, round(duration_seconds / 60))
-            await bhyve.start_zone(zone, minutes)
-            zone_started = True
-            errors.log_error("watering", f"Manual zone {zone} started ({duration_seconds}s)")
-            try:
-                await asyncio.sleep(duration_seconds)
-            except asyncio.CancelledError:
-                pass
-            try:
-                await bhyve.stop_zone()
-            except Exception:
-                pass
-            errors.log_error("watering", f"Manual zone {zone} stopped")
+            duration_seconds = 60
+        ok = await spr_inst.start_zone(zone, duration_seconds)
+        if not ok:
+            errors.log_error("watering", f"Manual zone {zone} start failed")
+            return
+        zone_started = True
+        errors.log_error("watering", f"Manual zone {zone} started ({duration_seconds}s)")
+        try:
+            await asyncio.sleep(duration_seconds)
+        except asyncio.CancelledError:
+            pass
+        try:
+            await spr_inst.stop_zone()
+        except Exception:
+            pass
+        errors.log_error("watering", f"Manual zone {zone} stopped")
     except asyncio.CancelledError:
-        if zone_started:
+        if zone_started and spr_inst:
             try:
-                from bridge import CONFIG as _cfg, BHyveClient as _BHyve
-                async with aiohttp.ClientSession() as _s:
-                    _b = _BHyve(_s)
-                    _b.device_id = _cfg["device_id"]
-                    await _b.login()
-                    await _b.stop_zone()
+                await spr_inst.stop_zone()
             except Exception:
                 pass
     except Exception as e:
         errors.log_error("manual_water", str(e), exc_info=True)
     finally:
+        if spr_inst:
+            try:
+                await spr_inst.disconnect()
+                await spr_inst._session.close()
+            except Exception:
+                pass
         _manual_water_task = None
         _water_pending = False
         _water_cancel_requested = False
@@ -1318,14 +1354,13 @@ async def handle_water_stop(request):
     _water_cancel_requested = True
     if _manual_water_task and not _manual_water_task.done():
         _manual_water_task.cancel()
+    # Also try stopping via provider
     try:
-        from bridge import CONFIG, BHyveClient
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            bhyve = BHyveClient(session)
-            bhyve.device_id = CONFIG["device_id"]
-            await bhyve.login()
-            await bhyve.stop_zone()
+        spr = await _get_sprinkler_provider()
+        if spr:
+            await spr.stop_zone()
+            await spr.disconnect()
+            await spr._session.close()
     except Exception:
         pass
     return web.json_response({"ok": True, "message": "Watering cancelled"})
@@ -1472,15 +1507,14 @@ async def handle_restart(request):
     global _manual_water_task, _water_pending
     if _manual_water_task and not _manual_water_task.done():
         _manual_water_task.cancel()
-    from bridge import CONFIG, BHyveClient
-    async with aiohttp.ClientSession() as session:
-        try:
-            bhyve = BHyveClient(session)
-            bhyve.device_id = CONFIG["device_id"]
-            await bhyve.login()
-            await bhyve.stop_zone()
-        except Exception:
-            pass
+    try:
+        spr = await _get_sprinkler_provider()
+        if spr:
+            await spr.stop_zone()
+            await spr.disconnect()
+            await spr._session.close()
+    except Exception:
+        pass
     _manual_water_task = None
     _water_pending = False
     service_id = os.environ.get("RENDER_SERVICE_ID") or os.environ.get("RENDER_SERVICE")
@@ -1513,15 +1547,14 @@ async def _suspend_service():
     if _manual_water_task and not _manual_water_task.done():
         _manual_water_task.cancel()
 
-    from bridge import CONFIG, BHyveClient
-    async with aiohttp.ClientSession() as session:
-        try:
-            bhyve = BHyveClient(session)
-            bhyve.device_id = CONFIG["device_id"]
-            await bhyve.login()
-            await bhyve.stop_zone()
-        except Exception:
-            pass
+    try:
+        spr = await _get_sprinkler_provider()
+        if spr:
+            await spr.stop_zone()
+            await spr.disconnect()
+            await spr._session.close()
+    except Exception:
+        pass
 
     _manual_water_task = None
     _water_pending = False
