@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: blink-bhyve-bridge
+    name: camera-sprinkler-bridge
     runtime: python
     region: oregon
     plan: free
