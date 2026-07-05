@@ -14,7 +14,25 @@ from sprinklers import SprinklerProvider, get_provider as get_sprinkler_provider
 
 # Import providers to trigger registration
 import cameras.blink  # noqa: F401
+import cameras.ring  # noqa: F401
+import cameras.reolink  # noqa: F401
+import cameras.hikvision  # noqa: F401
+import cameras.dahua  # noqa: F401
+import cameras.amcrest  # noqa: F401
+import cameras.foscam  # noqa: F401
+import cameras.unifi  # noqa: F401
+import cameras.axis  # noqa: F401
+import cameras.vivotek  # noqa: F401
+import cameras.rtsp  # noqa: F401
+import cameras.onvif  # noqa: F401
+import cameras.mjpeg  # noqa: F401
+import cameras.generic  # noqa: F401
 import sprinklers.bhyve  # noqa: F401
+import sprinklers.rachio  # noqa: F401
+import sprinklers.rainbird  # noqa: F401
+import sprinklers.hydrawise  # noqa: F401
+import sprinklers.opensprinkler  # noqa: F401
+import sprinklers.netro  # noqa: F401
 
 
 def load_config():

@@ -154,6 +154,57 @@ function camFields(t) {
     {key:"password", label:"Password", type:"password"},
     {key:"motion_interval", label:"Motion Interval (minutes)", type:"number", val:360}
   ];
+  if (t === "ring" || t === "arlo" || t === "nest" || t === "wyze" || t === "eufy" || t === "canary" || t === "simplisafe")
+    return [
+      {key:"email", label:"Email", type:"email"},
+      {key:"password", label:"Password", type:"password"}
+    ];
+  if (t === "reolink" || t === "hikvision" || t === "dahua" || t === "amcrest" || t === "foscam" || t === "axis" || t === "vivotek")
+    return [
+      {key:"host", label:"Host/IP", type:"text"},
+      {key:"port", label:"Port", type:"number", val:80},
+      {key:"username", label:"Username", type:"text"},
+      {key:"password", label:"Password", type:"password"}
+    ];
+  if (t === "unifi")
+    return [
+      {key:"host", label:"Host/IP", type:"text"},
+      {key:"port", label:"Port", type:"number", val:443},
+      {key:"username", label:"Username", type:"text"},
+      {key:"password", label:"Password", type:"password"},
+      {key:"verify_ssl", label:"Verify SSL", type:"text", val:"true"}
+    ];
+  if (t === "rtsp")
+    return [
+      {key:"url", label:"RTSP URL", type:"text"},
+      {key:"username", label:"Username", type:"text"},
+      {key:"password", label:"Password", type:"password"},
+      {key:"cooldown_seconds", label:"Motion Cooldown (s)", type:"number", val:30},
+      {key:"motion_threshold", label:"Motion Threshold", type:"number", val:5000}
+    ];
+  if (t === "onvif")
+    return [
+      {key:"host", label:"Host/IP", type:"text"},
+      {key:"port", label:"Port", type:"number", val:80},
+      {key:"username", label:"Username", type:"text"},
+      {key:"password", label:"Password", type:"password"}
+    ];
+  if (t === "mjpeg")
+    return [
+      {key:"url", label:"MJPEG URL", type:"text"},
+      {key:"username", label:"Username", type:"text"},
+      {key:"password", label:"Password", type:"password"},
+      {key:"cooldown_seconds", label:"Motion Cooldown (s)", type:"number", val:30},
+      {key:"motion_threshold", label:"Motion Threshold", type:"number", val:5000}
+    ];
+  if (t === "generic")
+    return [
+      {key:"url", label:"Stream URL", type:"text"},
+      {key:"username", label:"Username", type:"text"},
+      {key:"password", label:"Password", type:"password"},
+      {key:"cooldown_seconds", label:"Motion Cooldown (s)", type:"number", val:30},
+      {key:"motion_threshold", label:"Motion Threshold", type:"number", val:5000}
+    ];
   return [{key:"email", label:"Email", type:"email"},{key:"password", label:"Password", type:"password"}];
 }
 
@@ -162,6 +213,25 @@ function sprFields(t) {
     {key:"email", label:"Email", type:"email"},
     {key:"password", label:"Password", type:"password"},
     {key:"device_id", label:"Device ID", type:"text"}
+  ];
+  if (t === "rachio") return [
+    {key:"api_token", label:"API Token", type:"password"}
+  ];
+  if (t === "rainbird") return [
+    {key:"host", label:"Host/IP", type:"text"},
+    {key:"password", label:"Password", type:"password"}
+  ];
+  if (t === "hydrawise") return [
+    {key:"api_key", label:"API Key", type:"password"}
+  ];
+  if (t === "opensprinkler") return [
+    {key:"host", label:"Host/IP", type:"text"},
+    {key:"port", label:"Port", type:"number", val:80},
+    {key:"password", label:"Password", type:"password"}
+  ];
+  if (t === "netro") return [
+    {key:"serial", label:"Serial Number", type:"text"},
+    {key:"api_key", label:"API Key", type:"password"}
   ];
   return [{key:"email", label:"Email", type:"email"},{key:"password", label:"Password", type:"password"}];
 }

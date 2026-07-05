@@ -21,7 +21,7 @@ class CameraProvider:
 
     @property
     def connected(self) -> bool:
-        return False
+        return getattr(self, "_connected", False)
 
 
 _registry: dict[str, type[CameraProvider]] = {}
