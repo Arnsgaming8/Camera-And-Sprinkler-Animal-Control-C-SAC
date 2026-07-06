@@ -63,7 +63,7 @@ def generate_config():
             env_names = {c["name"] for c in env_cameras}
             for c in env_cameras:
                 if c["name"] in existing:
-                    existing[c["name"]].update(c)
+                    # Keep existing config (user may have changed via setup form)
                     merged.append(existing[c["name"]])
                 else:
                     merged.append(c)

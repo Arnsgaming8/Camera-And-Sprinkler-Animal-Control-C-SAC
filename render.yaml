@@ -18,7 +18,7 @@ services:
       - key: DEVICE_ID
         sync: false
       - key: CAMERAS
-        value: '[{"name":"Front Door","zone":1,"duration_seconds":20},{"name":"Back yard","zone":2,"duration_seconds":30}]'
+        sync: false
       - key: POLL_INTERVAL_SECONDS
         value: "30"
       - key: RENDER_API_KEY
